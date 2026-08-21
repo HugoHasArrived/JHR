@@ -1,0 +1,1578 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>JHR - Empowerment Through Technology</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f5f8ff;
+    color: #14234f;
+    line-height: 1.6;
+}
+
+/* =========================
+   NAVIGATION
+========================= */
+
+nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 12px 5%;
+
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-area img {
+    width: 55px;
+    height: 55px;
+    object-fit: contain;
+}
+
+.logo-text {
+    font-size: 28px;
+    font-weight: 900;
+    color: #1555d1;
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: #14234f;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.nav-links a:hover {
+    color: #ffb900;
+}
+
+/* =========================
+   HERO
+========================= */
+
+.hero {
+    min-height: 720px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+    color: white;
+
+    padding: 80px 20px;
+
+    background:
+        radial-gradient(
+            circle at 20% 20%,
+            rgba(0, 210, 255, 0.35),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 80% 20%,
+            rgba(255, 195, 0, 0.25),
+            transparent 30%
+        ),
+        linear-gradient(
+            135deg,
+            #061c66,
+            #086fd3,
+            #0bc3ec
+        );
+
+    overflow: hidden;
+}
+
+.hero-content {
+    max-width: 1000px;
+}
+
+.hero-logo {
+    width: 190px;
+    height: 190px;
+    object-fit: contain;
+
+    margin-bottom: 20px;
+
+    filter: drop-shadow(
+        0 15px 30px rgba(0, 0, 0, 0.3)
+    );
+}
+
+.badge {
+    display: inline-block;
+
+    padding: 8px 20px;
+
+    border-radius: 50px;
+
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.hero h1 {
+    font-size: clamp(70px, 15vw, 150px);
+    line-height: 0.9;
+
+    margin: 20px 0 10px;
+
+    letter-spacing: 10px;
+    font-weight: 1000;
+}
+
+.hero h2 {
+    color: #ffd21c;
+    font-size: clamp(20px, 4vw, 38px);
+
+    margin-bottom: 20px;
+}
+
+.hero p {
+    font-size: 20px;
+    max-width: 800px;
+    margin: auto;
+}
+
+.button {
+    display: inline-block;
+
+    margin: 25px 5px 0;
+
+    padding: 14px 25px;
+
+    border-radius: 50px;
+
+    background: #ffd21c;
+    color: #15234d;
+
+    text-decoration: none;
+    font-weight: 900;
+
+    transition: 0.2s;
+}
+
+.button:hover {
+    transform: translateY(-3px);
+}
+
+.button.pink {
+    background: #ff4fcf;
+    color: white;
+}
+
+/* =========================
+   GENERAL SECTIONS
+========================= */
+
+section {
+    padding: 90px 5%;
+}
+
+.container {
+    max-width: 1150px;
+    margin: auto;
+}
+
+.section-title {
+    text-align: center;
+
+    font-size: clamp(35px, 5vw, 55px);
+
+    color: #1555d1;
+
+    margin-bottom: 10px;
+}
+
+.section-subtitle {
+    text-align: center;
+
+    max-width: 800px;
+
+    margin: 0 auto 45px;
+
+    color: #66708d;
+
+    font-size: 18px;
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.cards {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(230px, 1fr));
+
+    gap: 25px;
+}
+
+.card {
+    background: white;
+
+    padding: 30px;
+
+    border-radius: 25px;
+
+    box-shadow:
+        0 12px 30px rgba(20, 40, 100, 0.12);
+
+    border-top: 5px solid #1555d1;
+
+    transition: 0.25s;
+}
+
+.card:hover {
+    transform: translateY(-8px);
+}
+
+.card h3 {
+    color: #1555d1;
+
+    margin-bottom: 10px;
+
+    font-size: 23px;
+}
+
+/* =========================
+   SERVICES
+========================= */
+
+.services {
+    background: #f5f8ff;
+}
+
+.service-card {
+    position: relative;
+}
+
+.free-badge {
+    display: inline-block;
+
+    margin-top: 15px;
+    padding: 7px 14px;
+
+    border-radius: 50px;
+
+    background: #1555d1;
+    color: white;
+
+    font-size: 13px;
+    font-weight: 900;
+
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* =========================
+   MISSION
+========================= */
+
+.mission {
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #061d67,
+            #1555d1,
+            #09b9e8
+        );
+}
+
+.mission .section-title {
+    color: white;
+}
+
+.mission .section-subtitle {
+    color: #e0efff;
+}
+
+.mission .cards {
+    grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.mission-card {
+    background: rgba(255, 255, 255, 0.12);
+
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    border-radius: 25px;
+
+    padding: 30px;
+
+    text-align: center;
+}
+
+.mission-card h3 {
+    font-size: 23px;
+
+    margin: 10px 0;
+}
+
+.icon {
+    font-size: 55px;
+}
+
+/* =========================
+   STATS
+========================= */
+
+.stats {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(170px, 1fr));
+
+    gap: 20px;
+}
+
+.stat {
+    background: white;
+
+    padding: 30px;
+
+    border-radius: 22px;
+
+    text-align: center;
+
+    box-shadow:
+        0 10px 25px rgba(20, 40, 100, 0.12);
+}
+
+.stat strong {
+    display: block;
+
+    font-size: 45px;
+
+    color: #1555d1;
+}
+
+/* =========================
+   PROJECTS
+========================= */
+
+.projects {
+    background: #edf5ff;
+}
+
+/* =========================
+   FOUNDERS
+========================= */
+
+.owners {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 35px;
+
+    max-width: 1000px;
+
+    margin: auto;
+}
+
+.owner {
+    background: white;
+
+    border-radius: 30px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 15px 35px rgba(20, 40, 100, 0.15);
+}
+
+.owner img {
+    width: 100%;
+
+    height: 500px;
+
+    object-fit: cover;
+
+    object-position: center top;
+
+    display: block;
+
+    background: #dfeeff;
+}
+
+.owner-info {
+    padding: 28px;
+}
+
+.owner-info h3 {
+    color: #1555d1;
+
+    font-size: 28px;
+}
+
+.owner-role {
+    color: #e3269a;
+
+    font-weight: bold;
+
+    margin: 5px 0 12px;
+}
+
+/* =========================
+   GAME ZONE
+========================= */
+
+.games {
+    background: #edf5ff;
+}
+
+.game-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(250px, 1fr));
+
+    gap: 25px;
+}
+
+.game {
+    background: white;
+
+    padding: 28px;
+
+    border-radius: 25px;
+
+    text-align: center;
+
+    box-shadow:
+        0 10px 25px rgba(20, 40, 100, 0.12);
+}
+
+.game h3 {
+    color: #1555d1;
+
+    margin-bottom: 10px;
+}
+
+.game button {
+    border: none;
+
+    border-radius: 50px;
+
+    padding: 10px 15px;
+
+    margin: 5px;
+
+    background: #1555d1;
+
+    color: white;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.game button:hover {
+    background: #ffb900;
+
+    color: #15234d;
+
+    transform: translateY(-2px);
+}
+
+.result {
+    margin-top: 12px;
+
+    min-height: 28px;
+
+    font-weight: 900;
+
+    color: #1555d1;
+}
+
+/* =========================
+   CONTACT
+========================= */
+
+.contact-box {
+    max-width: 800px;
+
+    margin: auto;
+
+    background: white;
+
+    padding: 45px;
+
+    text-align: center;
+
+    border-radius: 30px;
+
+    box-shadow:
+        0 15px 35px rgba(20, 40, 100, 0.15);
+}
+
+.contact-box a {
+    color: #1555d1;
+
+    font-weight: bold;
+
+    text-decoration: none;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+    background: #07152f;
+
+    color: white;
+
+    text-align: center;
+
+    padding: 55px 20px;
+}
+
+.footer-jhr {
+    color: #ffd21c;
+
+    font-size: 45px;
+
+    font-weight: 1000;
+}
+
+footer p {
+    margin: 5px;
+}
+
+footer .button {
+    margin-top: 20px;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 800px) {
+
+    nav {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .logo-area {
+        justify-content: center;
+    }
+
+    .nav-links {
+        gap: 12px;
+    }
+
+    .nav-links a {
+        font-size: 14px;
+    }
+
+    .owners {
+        grid-template-columns: 1fr;
+    }
+
+    .owner img {
+        height: 430px;
+    }
+
+    .hero {
+        min-height: 650px;
+    }
+
+    .hero-logo {
+        width: 150px;
+        height: 150px;
+    }
+
+    .badge {
+        font-size: 13px;
+        padding: 8px 14px;
+    }
+
+    .hero p {
+        font-size: 17px;
+    }
+
+    .contact-box {
+        padding: 30px 20px;
+    }
+}
+
+/* =========================
+   EXTRA SMALL DEVICES
+========================= */
+
+@media (max-width: 500px) {
+
+    nav {
+        padding: 10px 15px;
+    }
+
+    .logo-text {
+        font-size: 24px;
+    }
+
+    .logo-area img {
+        width: 45px;
+        height: 45px;
+    }
+
+    .nav-links {
+        gap: 8px;
+    }
+
+    .nav-links a {
+        font-size: 12px;
+    }
+
+    section {
+        padding: 65px 5%;
+    }
+
+    .hero h1 {
+        letter-spacing: 5px;
+    }
+
+    .hero h2 {
+        font-size: 22px;
+    }
+
+    .button {
+        padding: 12px 18px;
+        font-size: 14px;
+    }
+
+    .owner img {
+        height: 360px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- =========================
+     NAVIGATION
+========================= -->
+
+<nav>
+
+    <div class="logo-area">
+
+        <!-- Replace this with your real logo -->
+        <img
+            src="data:image/png;base64,PUT_YOUR_LOGO_BASE64_HERE"
+            alt="JHR Logo"
+        >
+
+        <div class="logo-text">
+            JHR
+        </div>
+
+    </div>
+
+    <div class="nav-links">
+
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#services">Services</a>
+        <a href="#mission">Mission</a>
+        <a href="#projects">Projects</a>
+        <a href="#owners">Founders</a>
+        <a href="#games">Games</a>
+        <a href="#contact">Contact</a>
+
+    </div>
+
+</nav>
+
+
+<!-- =========================
+     HERO
+========================= -->
+
+<section class="hero" id="home">
+
+    <div class="hero-content">
+
+        <!-- Replace with your real logo -->
+        <img
+            class="hero-logo"
+            src="data:image/png;base64,PUT_YOUR_LOGO_BASE64_HERE"
+            alt="JHR Official Logo"
+        >
+
+        <div class="badge">
+            TECHNOLOGY • EDUCATION • INNOVATION • COMMUNITY
+        </div>
+
+        <h1>
+            JHR
+        </h1>
+
+        <h2>
+            EMPOWERMENT THROUGH TECHNOLOGY
+        </h2>
+
+        <p>
+            Turning technology, creativity and learning
+            into opportunities for people and communities.
+        </p>
+
+        <a class="button" href="#about">
+            ✨ Explore JHR
+        </a>
+
+        <a class="button pink" href="#services">
+            💻 Free Coding Lessons
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     ABOUT
+========================= -->
+
+<section id="about">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            What is JHR?
+        </h2>
+
+        <p class="section-subtitle">
+            JHR is about using technology, education
+            and creativity to empower people and communities.
+        </p>
+
+        <div class="cards">
+
+            <div class="card">
+                <h3>💻 Technology</h3>
+
+                <p>
+                    Explore technology as a tool for creativity,
+                    learning and opportunity.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>📚 Education</h3>
+
+                <p>
+                    Build useful skills and turn ideas
+                    into real projects.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>🌱 Community</h3>
+
+                <p>
+                    Use technology to connect, learn
+                    and create positive impact.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>💡 Innovation</h3>
+
+                <p>
+                    Start with an idea, experiment,
+                    learn and keep improving.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     SERVICES
+========================= -->
+
+<section class="services" id="services">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Services We Offer 💙
+        </h2>
+
+        <p class="section-subtitle">
+            JHR provides opportunities to learn, create
+            and grow through technology.
+        </p>
+
+        <div class="cards">
+
+            <div class="card service-card">
+
+                <h3>
+                    💻 Free Coding Lessons
+                </h3>
+
+                <p>
+                    Learn the basics of coding and programming
+                    through beginner-friendly lessons and
+                    practical activities.
+                </p>
+
+                <span class="free-badge">
+                    ✨ Free for Learners
+                </span>
+
+            </div>
+
+            <div class="card service-card">
+
+                <h3>
+                    🌐 Web Development
+                </h3>
+
+                <p>
+                    Learn how websites are created using
+                    HTML, CSS and JavaScript while building
+                    your own projects.
+                </p>
+
+            </div>
+
+            <div class="card service-card">
+
+                <h3>
+                    🎓 Technology Learning
+                </h3>
+
+                <p>
+                    Explore digital skills, programming
+                    concepts and useful technology knowledge
+                    in a simple and practical way.
+                </p>
+
+            </div>
+
+            <div class="card service-card">
+
+                <h3>
+                    🚀 Project Guidance
+                </h3>
+
+                <p>
+                    Turn your ideas into technology projects
+                    and learn by creating real, useful
+                    applications.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     MISSION
+========================= -->
+
+<section class="mission" id="mission">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Our Mission
+        </h2>
+
+        <p class="section-subtitle">
+            Empowerment through technology,
+            knowledge and creativity.
+        </p>
+
+        <div class="cards">
+
+            <div class="mission-card">
+
+                <div class="icon">💻</div>
+
+                <h3>
+                    Technology
+                </h3>
+
+                <p>
+                    Promote creative and responsible
+                    technology use.
+                </p>
+
+            </div>
+
+            <div class="mission-card">
+
+                <div class="icon">🎓</div>
+
+                <h3>
+                    Education
+                </h3>
+
+                <p>
+                    Encourage digital learning
+                    and technology skills.
+                </p>
+
+            </div>
+
+            <div class="mission-card">
+
+                <div class="icon">🌍</div>
+
+                <h3>
+                    Community
+                </h3>
+
+                <p>
+                    Explore technology's positive
+                    community impact.
+                </p>
+
+            </div>
+
+            <div class="mission-card">
+
+                <div class="icon">🚀</div>
+
+                <h3>
+                    Innovation
+                </h3>
+
+                <p>
+                    Turn creative ideas into
+                    useful projects.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     STATS
+========================= -->
+
+<section>
+
+    <div class="container">
+
+        <h2 class="section-title">
+            JHR in Numbers
+        </h2>
+
+        <div class="stats">
+
+            <div class="stat">
+                <strong>100+</strong>
+                Ideas
+            </div>
+
+            <div class="stat">
+                <strong>25+</strong>
+                Activities
+            </div>
+
+            <div class="stat">
+                <strong>10+</strong>
+                Projects
+            </div>
+
+            <div class="stat">
+                <strong>1</strong>
+                Big Mission
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     PROJECTS
+========================= -->
+
+<section class="projects" id="projects">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            JHR Projects 🚀
+        </h2>
+
+        <p class="section-subtitle">
+            A showcase for technology, education,
+            community and future initiatives.
+        </p>
+
+        <div class="cards">
+
+            <div class="card">
+
+                <h3>
+                    💻 Technology Projects
+                </h3>
+
+                <p>
+                    Websites, digital tools,
+                    programming and creative technology.
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <h3>
+                    🏫 Education
+                </h3>
+
+                <p>
+                    Technology-related learning activities
+                    and educational experiences.
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <h3>
+                    🌾 Community
+                </h3>
+
+                <p>
+                    Exploring ways technology can support
+                    communities and everyday life.
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <h3>
+                    🚀 Future Projects
+                </h3>
+
+                <p>
+                    New ideas and initiatives can be added
+                    here as JHR grows.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     FOUNDERS
+========================= -->
+
+<section id="owners">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Meet the Founders 👥
+        </h2>
+
+        <p class="section-subtitle">
+            The founders behind JHR.
+        </p>
+
+        <div class="owners">
+
+            <article class="owner">
+
+                <!-- Replace with first founder image -->
+                <img
+                    src="data:image/jpeg;base64,PUT_FIRST_PERSON_BASE64_HERE"
+                    alt="JHR Founder"
+                >
+
+                <div class="owner-info">
+
+                    <h3>
+                        Founder
+                    </h3>
+
+                    <div class="owner-role">
+                        Founder
+                    </div>
+
+                    <p>
+                        The founder helps guide JHR's
+                        vision, projects and
+                        technology-focused activities.
+                    </p>
+
+                </div>
+
+            </article>
+
+
+            <article class="owner">
+
+                <!-- Replace with second founder image -->
+                <img
+                    src="data:image/png;base64,PUT_SECOND_PERSON_BASE64_HERE"
+                    alt="JHR Founder"
+                >
+
+                <div class="owner-info">
+
+                    <h3>
+                        Founder
+                    </h3>
+
+                    <div class="owner-role">
+                        Founder
+                    </div>
+
+                    <p>
+                        The founder supports JHR's
+                        projects, creativity and
+                        technology activities.
+                    </p>
+
+                </div>
+
+            </article>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     GAME ZONE
+========================= -->
+
+<section class="games" id="games">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            JHR GAME ZONE 🎮
+        </h2>
+
+        <p class="section-subtitle">
+            Learn, think and have fun.
+        </p>
+
+        <div class="game-grid">
+
+            <!-- GAME 1 -->
+
+            <div class="game">
+
+                <h3>
+                    ⚡ Speed Math
+                </h3>
+
+                <p>
+                    What is 12 × 8?
+                </p>
+
+                <button onclick="answer('r1', 96, this)">
+                    96
+                </button>
+
+                <button onclick="answer('r1', 96, this)">
+                    88
+                </button>
+
+                <button onclick="answer('r1', 96, this)">
+                    108
+                </button>
+
+                <div class="result" id="r1">
+                    Choose an answer!
+                </div>
+
+            </div>
+
+
+            <!-- GAME 2 -->
+
+            <div class="game">
+
+                <h3>
+                    🧠 Tech Quiz
+                </h3>
+
+                <p>
+                    What does CPU mean?
+                </p>
+
+                <button onclick="booleanAnswer('r2', true)">
+                    Central Processing Unit
+                </button>
+
+                <button onclick="booleanAnswer('r2', false)">
+                    Computer Personal Unit
+                </button>
+
+                <div class="result" id="r2">
+                    Choose an answer!
+                </div>
+
+            </div>
+
+
+            <!-- GAME 3 -->
+
+            <div class="game">
+
+                <h3>
+                    🔢 Number Guess
+                </h3>
+
+                <p>
+                    Guess the secret number: 1–5
+                </p>
+
+                <button onclick="guess(1)">1</button>
+                <button onclick="guess(2)">2</button>
+                <button onclick="guess(3)">3</button>
+                <button onclick="guess(4)">4</button>
+                <button onclick="guess(5)">5</button>
+
+                <div class="result" id="r3">
+                    Good luck!
+                </div>
+
+            </div>
+
+
+            <!-- GAME 4 -->
+
+            <div class="game">
+
+                <h3>
+                    🌍 Digital Citizenship
+                </h3>
+
+                <p>
+                    Which is responsible technology use?
+                </p>
+
+                <button onclick="booleanAnswer('r4', true)">
+                    Learning 📚
+                </button>
+
+                <button onclick="booleanAnswer('r4', false)">
+                    Cyberbullying 😈
+                </button>
+
+                <button onclick="booleanAnswer('r4', false)">
+                    Fake News ❌
+                </button>
+
+                <div class="result" id="r4">
+                    Choose an answer!
+                </div>
+
+            </div>
+
+
+            <!-- GAME 5 -->
+
+            <div class="game">
+
+                <h3>
+                    🚀 JHR Challenge
+                </h3>
+
+                <p>
+                    What should you do when learning
+                    something difficult?
+                </p>
+
+                <button onclick="booleanAnswer('r5', true)">
+                    Keep practicing 💪
+                </button>
+
+                <button onclick="booleanAnswer('r5', false)">
+                    Give up 😴
+                </button>
+
+                <div class="result" id="r5">
+                    Your challenge awaits!
+                </div>
+
+            </div>
+
+
+            <!-- GAME 6 -->
+
+            <div class="game">
+
+                <h3>
+                    ➕ Quick Addition
+                </h3>
+
+                <p>
+                    27 + 15 = ?
+                </p>
+
+                <button onclick="answer('r6', 42, this)">
+                    42
+                </button>
+
+                <button onclick="answer('r6', 42, this)">
+                    41
+                </button>
+
+                <button onclick="answer('r6', 42, this)">
+                    52
+                </button>
+
+                <div class="result" id="r6">
+                    Choose!
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     CONTACT
+========================= -->
+
+<section id="contact">
+
+    <div class="contact-box">
+
+        <h2 class="section-title">
+            Contact JHR
+        </h2>
+
+        <p>
+            Join us in this journey!
+        </p>
+
+        <br>
+
+        <p>
+            📧
+            <a href="mailto:josehr.tan@gmail.com">
+                josehr.tan@gmail.com
+            </a>
+        </p>
+
+        <p>
+            📱
+            <a href="tel:09096585708">
+                0909 658 5708
+            </a>
+        </p>
+
+        <a
+            class="button"
+            href="https://www.facebook.com/jhrtan"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            📘 JHR Facebook
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer>
+
+    <div class="footer-jhr">
+        JHR
+    </div>
+
+    <p>
+        EMPOWERMENT THROUGH TECHNOLOGY
+    </p>
+
+    <p>
+        Technology • Education • Innovation • Community
+    </p>
+
+    <br>
+
+    <a
+        class="button"
+        href="https://www.facebook.com/jhrtan"
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        Facebook
+    </a>
+
+    <p>
+        © 2026 JHR
+    </p>
+
+</footer>
+
+
+<!-- =========================
+     JAVASCRIPT
+========================= -->
+
+<script>
+
+/* =========================
+   MULTIPLE CHOICE
+========================= */
+
+function answer(id, correctNumber, button) {
+
+    const result = document.getElementById(id);
+
+    const selected =
+        Number(button.innerText.trim());
+
+    if (selected === correctNumber) {
+
+        result.innerText = "🎉 CORRECT!";
+
+    } else {
+
+        result.innerText = "❌ Try again!";
+
+    }
+}
+
+
+/* =========================
+   TRUE / FALSE
+========================= */
+
+function booleanAnswer(id, correct) {
+
+    const result =
+        document.getElementById(id);
+
+    if (correct) {
+
+        result.innerText =
+            "🎉 CORRECT!";
+
+    } else {
+
+        result.innerText =
+            "❌ Try again!";
+
+    }
+}
+
+
+/* =========================
+   NUMBER GUESS
+========================= */
+
+let secret =
+    Math.floor(Math.random() * 5) + 1;
+
+
+function guess(number) {
+
+    const result =
+        document.getElementById("r3");
+
+    if (number === secret) {
+
+        result.innerText =
+            "🏆 AMAZING! You got it!";
+
+        secret =
+            Math.floor(Math.random() * 5) + 1;
+
+    } else {
+
+        result.innerText =
+            "❌ Nope! Try again.";
+
+    }
+}
+
+</script>
+
+</body>
+</html>
+```
