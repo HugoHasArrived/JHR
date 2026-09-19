@@ -2461,7 +2461,7 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's LEGO SPIKE Prime Time"
+    data-en="Community Time"
     data-fil="🤝 Pagkatuto sa Komunidad"
 >
 
