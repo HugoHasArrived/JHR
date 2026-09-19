@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
+from functools import wraps
 
 app = Flask(
     __name__,
@@ -31,6 +32,8 @@ def get_db():
 
 def init_db():
     conn = get_db()
+
+    # Kept for compatibility with the earlier version.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +41,37 @@ def init_db():
             password TEXT NOT NULL
         )
     """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS staff_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS class_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    existing = conn.execute(
+        "SELECT id FROM staff_accounts WHERE username = ?",
+        ("admin",)
+    ).fetchone()
+
+    if not existing:
+        conn.execute(
+            "INSERT INTO staff_accounts (username, password) VALUES (?, ?)",
+            ("admin", generate_password_hash("admin123"))
+        )
+
     conn.commit()
     conn.close()
 
@@ -130,6 +164,93 @@ def media(image_name):
 # =========================================================
 # WEBSITE
 # =========================================================
+
+STAFF_DASHBOARD_HTML = r"""
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JHR | Staff Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#10131a;color:#fff;padding:30px}
+.wrap{max-width:1100px;margin:auto}
+.card{background:#191e28;border:1px solid #303746;border-radius:18px;padding:24px;margin:0 0 22px;box-shadow:0 12px 35px rgba(0,0,0,.18)}
+h1,h2{margin-top:0}
+input,textarea{width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit}
+textarea{min-height:130px;resize:vertical}
+button{border:0;border-radius:11px;padding:12px 17px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;cursor:pointer;font-weight:800}
+a{color:#b894ff}
+.message{border-top:1px solid #303746;padding:16px 0}
+.message:first-child{border-top:0}
+.meta{color:#aab4c2;font-size:14px}
+.notice{padding:12px;border-radius:10px;background:#241d3c;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p><a href="{{ url_for('home') }}">← Back to JHR website</a></p>
+<h1>👨‍💼 JHR Staff Dashboard</h1>
+<p>You are logged in as <strong>{{ staff_username }}</strong>.</p>
+
+{% with notices = get_flashed_messages() %}
+{% for notice in notices %}
+<div class="notice">{{ notice }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="card">
+<h2>📨 Free Coding Class Messages</h2>
+{% if messages %}
+    {% for msg in messages %}
+    <div class="message">
+        <strong>{{ msg["name"] }}</strong><br>
+        <span class="meta">{{ msg["email"] }} · {{ msg["created_at"] }}</span>
+        <p style="white-space:pre-wrap;">{{ msg["message"] }}</p>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No coding-class messages yet.</p>
+{% endif %}
+</div>
+
+<div class="card">
+<h2>🔑 Change My Staff Password</h2>
+<form method="POST" action="{{ url_for('change_staff_password') }}">
+<label>Current password</label>
+<input type="password" name="current_password" required autocomplete="current-password">
+<label>New password</label>
+<input type="password" name="new_password" minlength="6" required autocomplete="new-password">
+<label>Confirm new password</label>
+<input type="password" name="confirm_password" minlength="6" required autocomplete="new-password">
+<button type="submit">Change Password</button>
+</form>
+</div>
+
+<div class="card">
+<h2>👥 Add New Staff Account</h2>
+<form method="POST" action="{{ url_for('add_staff_account') }}">
+<label>Username</label>
+<input type="text" name="username" minlength="3" maxlength="80" required autocomplete="off">
+<label>Password</label>
+<input type="password" name="password" minlength="6" required autocomplete="new-password">
+<label>Confirm password</label>
+<input type="password" name="confirm_password" minlength="6" required autocomplete="new-password">
+<button type="submit">Create Staff Account</button>
+</form>
+</div>
+
+<div class="card">
+<h2>👤 Current Staff Accounts</h2>
+{% for staff in staff_accounts %}
+<p><strong>{{ staff["username"] }}</strong><br><span class="meta">Created {{ staff["created_at"] }}</span></p>
+{% endfor %}
+</div>
+</div>
+</body>
+</html>
+"""
 
 HTML = r"""
 <!DOCTYPE html>
@@ -1862,10 +1983,11 @@ footer {
     🌙
 </button>
 
-{% if session.get("user_id") %}
+{% if session.get("staff_id") %}
+<a class="nav-btn" href="{{ url_for('staff_dashboard') }}" style="text-decoration:none;">👨‍💼 Staff</a>
 <a class="nav-btn" href="{{ url_for('logout') }}" style="text-decoration:none;">🚪 Logout</a>
 {% else %}
-<a class="nav-btn" href="{{ url_for('login') }}" style="text-decoration:none;">🔐 Login</a>
+<a class="nav-btn" href="{{ url_for('login') }}" style="text-decoration:none;">🔐 Staff Login</a>
 {% endif %}
 
 
@@ -2635,12 +2757,29 @@ footer {
 
 </div>
 
+<div class="auth-box" id="coding-classes">
+    <h3>📨 Message Staff About Free Coding Classes</h3>
+    <p style="color:var(--muted); margin:8px 0 15px;">Send your question or request directly to the JHR staff. You do not need a staff account to send a message.</p>
+    <form method="POST" action="{{ url_for('coding_class_message') }}">
+        <label for="class-name">Name</label>
+        <input id="class-name" type="text" name="name" maxlength="120" placeholder="Your name" required>
+
+        <label for="class-email">Email</label>
+        <input id="class-email" type="email" name="email" maxlength="200" placeholder="you@example.com" required>
+
+        <label for="class-message">Message</label>
+        <textarea id="class-message" name="message" maxlength="5000" placeholder="Write your message about the free coding classes..." required style="width:100%;min-height:140px;padding:13px;margin:8px 0 14px;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--text);font:inherit;resize:vertical;"></textarea>
+
+        <button class="upload-submit" type="submit">📨 Send Message to Staff</button>
+    </form>
+</div>
+
 </section>
 
 
 
 <!-- =====================================================
-     GALLERY
+GALLERY
      
      EXACT GALLERY FILES:
      
@@ -2677,7 +2816,7 @@ footer {
 </p>
 
 
-{% if session.get("user_id") %}
+{% if session.get("staff_id") %}
 <div class="auth-box gallery-upload">
     <h3>📸 Import Pictures</h3>
     <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from your computer and add them to the JHR Gallery.</p>
@@ -4046,17 +4185,16 @@ AUTH_HTML = r"""
 """
 
 # =========================================================
-# REGISTER
+# STAFF LOGIN
 # =========================================================
 
-# =========================================================
-# FIXED LOGIN ACCOUNT
-# Username: admin
-# Password: admin123
-# =========================================================
-
-LOGIN_USERNAME = "admin"
-LOGIN_PASSWORD = "admin123"
+def staff_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff_id"):
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -4065,20 +4203,29 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        if username == LOGIN_USERNAME and password == LOGIN_PASSWORD:
-            session["user_id"] = 1
-            session["username"] = LOGIN_USERNAME
-            flash("Welcome back, " + LOGIN_USERNAME + "!")
+        conn = get_db()
+        staff = conn.execute(
+            "SELECT * FROM staff_accounts WHERE username = ?",
+            (username,)
+        ).fetchone()
+        conn.close()
+
+        if staff and check_password_hash(staff["password"], password):
+            session.clear()
+            session["staff_id"] = staff["id"]
+            session["staff_username"] = staff["username"]
+            flash("Welcome, " + staff["username"] + "!")
             return redirect(url_for("home"))
 
-        flash("Invalid username or password.")
+        flash("Invalid staff username or password.")
 
     return render_template_string(
         AUTH_HTML,
-        title="Login",
+        title="Staff Login",
         action="Login",
-        message="Log in to import pictures into the gallery."
+        message="Log in to manage gallery pictures and coding-class messages."
     )
+
 
 @app.route("/logout")
 def logout():
@@ -4092,16 +4239,15 @@ def logout():
 # =========================================================
 
 @app.route("/gallery/upload", methods=["POST"])
+@staff_required
 def upload_gallery():
-    if not session.get("user_id"):
-        return redirect(url_for("login"))
-
     files = request.files.getlist("images")
     added = 0
 
     for image in files:
         if not image or not image.filename or not allowed_file(image.filename):
             continue
+
         filename = secure_filename(image.filename)
         if not filename:
             continue
@@ -4109,6 +4255,7 @@ def upload_gallery():
         base, ext = os.path.splitext(filename)
         candidate = filename
         counter = 1
+
         while os.path.exists(os.path.join(GALLERY_FOLDER, candidate)):
             candidate = f"{base}_{counter}{ext}"
             counter += 1
@@ -4118,6 +4265,137 @@ def upload_gallery():
 
     flash(f"{added} picture(s) imported into the gallery.")
     return redirect(url_for("home") + "#gallery")
+
+
+# =========================================================
+# FREE CODING CLASS MESSAGES
+# =========================================================
+
+@app.route("/coding-class-message", methods=["POST"])
+def coding_class_message():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    message = request.form.get("message", "").strip()
+
+    if not name or not email or not message:
+        flash("Please fill in your name, email, and message.")
+        return redirect(url_for("home") + "#coding-classes")
+
+    if len(name) > 120 or len(email) > 200 or len(message) > 5000:
+        flash("Please keep your name, email, and message within the allowed length.")
+        return redirect(url_for("home") + "#coding-classes")
+
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO class_messages (name, email, message) VALUES (?, ?, ?)",
+        (name, email, message)
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Your message was sent to the JHR staff.")
+    return redirect(url_for("home") + "#coding-classes")
+
+
+# =========================================================
+# STAFF DASHBOARD
+# =========================================================
+
+@app.route("/staff")
+@staff_required
+def staff_dashboard():
+    conn = get_db()
+    messages = conn.execute(
+        "SELECT * FROM class_messages ORDER BY id DESC"
+    ).fetchall()
+    staff_accounts = conn.execute(
+        "SELECT id, username, created_at FROM staff_accounts ORDER BY username"
+    ).fetchall()
+    conn.close()
+
+    return render_template_string(
+        STAFF_DASHBOARD_HTML,
+        messages=messages,
+        staff_accounts=staff_accounts,
+        staff_username=session.get("staff_username")
+    )
+
+
+@app.route("/staff/change-password", methods=["POST"])
+@staff_required
+def change_staff_password():
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if len(new_password) < 6:
+        flash("New password must be at least 6 characters.")
+        return redirect(url_for("staff_dashboard"))
+
+    if new_password != confirm_password:
+        flash("New passwords do not match.")
+        return redirect(url_for("staff_dashboard"))
+
+    conn = get_db()
+    staff = conn.execute(
+        "SELECT * FROM staff_accounts WHERE id = ?",
+        (session["staff_id"],)
+    ).fetchone()
+
+    if not staff or not check_password_hash(staff["password"], current_password):
+        conn.close()
+        flash("Current password is incorrect.")
+        return redirect(url_for("staff_dashboard"))
+
+    conn.execute(
+        "UPDATE staff_accounts SET password = ? WHERE id = ?",
+        (generate_password_hash(new_password), session["staff_id"])
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Your staff password has been changed.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/add-account", methods=["POST"])
+@staff_required
+def add_staff_account():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if len(username) < 3:
+        flash("Staff username must be at least 3 characters.")
+        return redirect(url_for("staff_dashboard"))
+
+    if len(username) > 80:
+        flash("Staff username is too long.")
+        return redirect(url_for("staff_dashboard"))
+
+    if len(password) < 6:
+        flash("Staff password must be at least 6 characters.")
+        return redirect(url_for("staff_dashboard"))
+
+    if password != confirm_password:
+        flash("New staff passwords do not match.")
+        return redirect(url_for("staff_dashboard"))
+
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO staff_accounts (username, password) VALUES (?, ?)",
+            (username, generate_password_hash(password))
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        flash("That staff username already exists.")
+        return redirect(url_for("staff_dashboard"))
+
+    conn.close()
+    flash("New staff account created.")
+    return redirect(url_for("staff_dashboard"))
 
 
 @app.route("/gallery-image/<path:filename>")
