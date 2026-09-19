@@ -208,6 +208,14 @@ a{color:#b894ff}
         <strong>{{ msg["name"] }}</strong><br>
         <span class="meta">{{ msg["email"] }} · {{ msg["created_at"] }}</span>
         <p style="white-space:pre-wrap;">{{ msg["message"] }}</p>
+        <form method="POST"
+              action="{{ url_for('delete_staff_message', message_id=msg['id']) }}"
+              onsubmit="return confirm('Are you sure you want to permanently delete this message?');">
+            <button type="submit"
+                    style="background:#b42318;color:#fff;padding:9px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:800;">
+                🗑️ Delete Message
+            </button>
+        </form>
     </div>
     {% endfor %}
 {% else %}
@@ -4395,6 +4403,29 @@ def add_staff_account():
 
     conn.close()
     flash("New staff account created.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/delete-message/<int:message_id>", methods=["POST"])
+@staff_required
+def delete_staff_message(message_id):
+    conn = get_db()
+    message = conn.execute(
+        "SELECT id FROM class_messages WHERE id = ?",
+        (message_id,)
+    ).fetchone()
+
+    if message:
+        conn.execute(
+            "DELETE FROM class_messages WHERE id = ?",
+            (message_id,)
+        )
+        conn.commit()
+        flash("Message deleted successfully.")
+    else:
+        flash("Message not found.")
+
+    conn.close()
     return redirect(url_for("staff_dashboard"))
 
 
