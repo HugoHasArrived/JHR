@@ -2424,11 +2424,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Building Time"
+    data-en="It's Building Time!"
     data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
 >
 
-    It's Building Time
+    It's Building Time!
 
 </h3>
 
@@ -2510,11 +2510,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Scratch Time"
+    data-en="It's Scratch Time!"
     data-fil="🏫 Ozamiz Elementary School"
 >
 
-    It's Scratch Time
+    It's Scratch Time!
 
 </h3>
 
