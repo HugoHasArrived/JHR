@@ -1,5 +1,8 @@
-from flask import Flask, render_template_string, send_from_directory, abort
+from flask import Flask, render_template_string, send_from_directory, abort, request, redirect, url_for, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 import os
+import sqlite3
 
 app = Flask(
     __name__,
@@ -8,6 +11,51 @@ app = Flask(
 )
 
 viewer_count = 0
+
+# =========================================================
+# LOGIN / GALLERY SETTINGS
+# =========================================================
+
+app.secret_key = os.environ.get("JHR_SECRET_KEY", "change-this-secret-key")
+DATABASE = "jhr_users.db"
+GALLERY_FOLDER = os.path.join(app.static_folder, "gallery")
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+os.makedirs(GALLERY_FOLDER, exist_ok=True)
+
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def gallery_images():
+    images = []
+    if os.path.isdir(GALLERY_FOLDER):
+        for filename in sorted(os.listdir(GALLERY_FOLDER)):
+            if allowed_file(filename):
+                images.append(filename)
+    return images
+
+
+init_db()
 
 
 # =========================================================
@@ -1612,12 +1660,71 @@ footer {
 
 }
 
+
+/* =====================================================
+   LOGIN / REGISTER / UPLOAD
+===================================================== */
+.auth-box {
+    max-width: 520px;
+    margin: 35px auto;
+    padding: 30px;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border-top: 5px solid var(--purple);
+}
+.auth-box input[type="text"],
+.auth-box input[type="password"],
+.auth-box input[type="file"] {
+    width: 100%;
+    padding: 13px;
+    margin: 8px 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+    color: var(--text);
+}
+.auth-submit, .upload-submit {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg,var(--purple),var(--pink));
+    color: white;
+    cursor: pointer;
+    font-weight: 800;
+}
+.auth-message {
+    padding: 10px 14px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    background: var(--purple-soft);
+    color: var(--purple);
+    font-weight: 700;
+}
+.gallery-upload {
+    margin-bottom: 30px;
+}
+.gallery-upload small {
+    color: var(--muted);
+}
+.gallery-card img {
+    object-fit: cover;
+}
+
 </style>
 
 </head>
 
 
 <body>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div style="position:fixed;top:85px;right:20px;z-index:20000;max-width:360px;">
+{% for message in messages %}<div class="auth-message">{{ message }}</div>{% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 
 
 <!-- =====================================================
@@ -1754,6 +1861,12 @@ footer {
 >
     🌙
 </button>
+
+{% if session.get("user_id") %}
+<a class="nav-btn" href="{{ url_for('logout') }}" style="text-decoration:none;">🚪 Logout</a>
+{% else %}
+<a class="nav-btn" href="{{ url_for('login') }}" style="text-decoration:none;">🔐 Login</a>
+{% endif %}
 
 
 </div>
@@ -2563,6 +2676,25 @@ footer {
 
 </p>
 
+
+{% if session.get("user_id") %}
+<div class="auth-box gallery-upload">
+    <h3>📸 Import Pictures</h3>
+    <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from your computer and add them to the JHR Gallery.</p>
+    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data">
+        <input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+        <button class="upload-submit" type="submit">⬆️ Import Pictures</button>
+    </form>
+    <small>Supported: JPG, JPEG, PNG, WEBP, GIF</small>
+</div>
+{% endif %}
+
+{% for image in uploaded_images %}
+<div class="gallery-card">
+    <img src="{{ url_for('uploaded_gallery_image', filename=image) }}" alt="JHR uploaded gallery image" loading="lazy" decoding="async">
+    <div class="gallery-caption"><h3>📷 JHR Gallery</h3><p>Imported picture</p></div>
+</div>
+{% endfor %}
 
 <div class="gallery-grid">
 
@@ -3881,8 +4013,145 @@ def home():
 
     return render_template_string(
         HTML,
-        viewer_count=viewer_count
+        viewer_count=viewer_count,
+        uploaded_images=gallery_images()
     )
+
+
+AUTH_HTML = r"""
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JHR | {{ title }}</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#2e1065,#7c3aed,#c026d3);padding:20px}.box{width:min(440px,100%);background:white;border-radius:24px;padding:35px;box-shadow:0 20px 60px rgba(0,0,0,.25)}h1{color:#4c1d95;margin-top:0}p{color:#6b5b82}.box input{width:100%;padding:14px;margin:7px 0 15px;border:1px solid #ded0ff;border-radius:12px}.box button{width:100%;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:white;font-weight:800;cursor:pointer}.box a{display:block;text-align:center;margin-top:18px;color:#7c3aed;text-decoration:none;font-weight:700}.note{background:#ede9fe;padding:12px;border-radius:12px;margin-bottom:15px;color:#4c1d95;font-weight:700}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>JHR {{ title }}</h1>
+<p>{{ message }}</p>
+{% with messages = get_flashed_messages() %}{% for msg in messages %}<div class="note">{{ msg }}</div>{% endfor %}{% endwith %}
+<form method="POST">
+<label>Username</label><input type="text" name="username" required autocomplete="username">
+<label>Password</label><input type="password" name="password" required autocomplete="current-password">
+<button type="submit">{{ action }}</button>
+</form>
+{% if title == "Login" %}<a href="{{ url_for('register') }}">Create an account</a>{% else %}<a href="{{ url_for('login') }}">Already have an account? Log in</a>{% endif %}
+<a href="{{ url_for('home') }}">← Back to JHR</a>
+</div>
+</body>
+</html>
+"""
+
+# =========================================================
+# REGISTER
+# =========================================================
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        if len(username) < 3 or len(password) < 6:
+            flash("Username must be at least 3 characters and password at least 6 characters.")
+            return redirect(url_for("register"))
+
+        conn = get_db()
+        try:
+            conn.execute(
+                "INSERT INTO users (username, password) VALUES (?, ?)",
+                (username, generate_password_hash(password))
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.close()
+            flash("That username is already registered.")
+            return redirect(url_for("register"))
+        conn.close()
+        flash("Account created. You can now log in.")
+        return redirect(url_for("login"))
+
+    return render_template_string(AUTH_HTML, title="Register", action="Register", message="Create your JHR account.")
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user["password"], password):
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            flash("Welcome back, " + user["username"] + "!")
+            return redirect(url_for("home"))
+
+        flash("Invalid username or password.")
+
+    return render_template_string(AUTH_HTML, title="Login", action="Login", message="Log in to import pictures into the gallery.")
+
+
+# =========================================================
+# LOGOUT
+# =========================================================
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("home"))
+
+
+# =========================================================
+# GALLERY UPLOAD
+# =========================================================
+
+@app.route("/gallery/upload", methods=["POST"])
+def upload_gallery():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    files = request.files.getlist("images")
+    added = 0
+
+    for image in files:
+        if not image or not image.filename or not allowed_file(image.filename):
+            continue
+        filename = secure_filename(image.filename)
+        if not filename:
+            continue
+
+        base, ext = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+        while os.path.exists(os.path.join(GALLERY_FOLDER, candidate)):
+            candidate = f"{base}_{counter}{ext}"
+            counter += 1
+
+        image.save(os.path.join(GALLERY_FOLDER, candidate))
+        added += 1
+
+    flash(f"{added} picture(s) imported into the gallery.")
+    return redirect(url_for("home") + "#gallery")
+
+
+@app.route("/gallery-image/<path:filename>")
+def uploaded_gallery_image(filename):
+    filename = os.path.basename(filename)
+    if not allowed_file(filename):
+        abort(404)
+    return send_from_directory(GALLERY_FOLDER, filename)
 
 
 # =========================================================
