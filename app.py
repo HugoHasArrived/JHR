@@ -2465,7 +2465,7 @@ GALLERY
     data-fil="🤝 Pagkatuto sa Komunidad"
 >
 
-    It's LEGO SPIKE Prime Time
+    Community Time
 
 </h3>
 
