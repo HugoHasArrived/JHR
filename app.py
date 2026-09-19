@@ -61,6 +61,17 @@ def init_db():
         )
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS news_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL DEFAULT 'Announcement',
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            author_id INTEGER
+        )
+    """)
+
     existing = conn.execute(
         "SELECT id FROM staff_accounts WHERE username = ?",
         ("admin",)
@@ -78,6 +89,20 @@ def init_db():
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def news_items():
+    conn = get_db()
+    items = conn.execute(
+        """
+        SELECT news_items.*, staff_accounts.username AS author
+        FROM news_items
+        LEFT JOIN staff_accounts ON staff_accounts.id = news_items.author_id
+        ORDER BY news_items.id DESC
+        """
+    ).fetchall()
+    conn.close()
+    return items
 
 
 def gallery_images():
@@ -250,6 +275,40 @@ a{color:#b894ff}
 </div>
 
 <div class="card">
+<h2>📰 Add News / Announcement</h2>
+<form method="POST" action="{{ url_for('add_news_item') }}">
+<label>Type</label>
+<select name="kind" required style="width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit;">
+<option value="Announcement">Announcement</option>
+<option value="News">News</option>
+</select>
+<label>Title</label>
+<input type="text" name="title" maxlength="160" required placeholder="News or announcement title">
+<label>Content</label>
+<textarea name="content" maxlength="10000" required placeholder="Write the news or announcement..."></textarea>
+<button type="submit">📢 Publish</button>
+</form>
+</div>
+
+<div class="card">
+<h2>🗞️ Published News & Announcements</h2>
+{% if news_items %}
+    {% for item in news_items %}
+    <div class="message">
+        <strong>{{ item["kind"] }} — {{ item["title"] }}</strong><br>
+        <span class="meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</span>
+        <p style="white-space:pre-wrap;">{{ item["content"] }}</p>
+        <form method="POST" action="{{ url_for('delete_news_item', news_id=item['id']) }}" onsubmit="return confirm('Delete this news or announcement permanently?');">
+            <button type="submit" style="background:#b42318;color:#fff;padding:9px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:800;">🗑️ Delete</button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No news or announcements published yet.</p>
+{% endif %}
+</div>
+
+<div class="card">
 <h2>👤 Current Staff Accounts</h2>
 {% for staff in staff_accounts %}
 <p><strong>{{ staff["username"] }}</strong><br><span class="meta">Created {{ staff["created_at"] }}</span></p>
@@ -280,11 +339,11 @@ HTML = r"""
 
 <meta
     name="description"
-    content="JHR — Empowerment Through Technology"
+    content="JHR — Technology, Creativity, and Learning"
 >
 
 <title>
-JHR | Empowerment Through Technology
+JHR | Technology, Creativity, and Learning
 </title>
 
 
@@ -1155,6 +1214,23 @@ body.dark .title {
 
 
 /* =====================================================
+   REQUESTED JHR LAYOUT
+===================================================== */
+.mission-subtitle{color:#fff !important}
+.who-are-we-cards{display:flex;justify-content:center}
+.who-we-are-box{width:min(950px,100%);text-align:left}
+.project-mini-grid{justify-content:center;align-items:stretch}
+.project-mini-card{max-width:330px;margin:0 auto;text-align:center}
+.service-center{justify-content:center;align-items:stretch}
+.service-center .service-card{max-width:360px;margin:0 auto;text-align:center}
+.news-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.news-card{background:var(--card);border:1px solid var(--border);border-top:5px solid var(--purple);border-radius:22px;padding:24px;box-shadow:var(--shadow);text-align:left}
+.news-card .news-kind{color:var(--purple);font-weight:900;text-transform:uppercase;font-size:12px;letter-spacing:.06em}
+.news-card h3{color:var(--text);margin:8px 0}
+.news-card p{color:var(--muted);white-space:pre-wrap}
+.news-meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+
+/* =====================================================
    GALLERY
 ===================================================== */
 
@@ -1898,8 +1974,8 @@ footer {
 
 <a
     href="#about"
-    data-en="About"
-    data-fil="Tungkol"
+    data-en="About Us"
+    data-fil="Tungkol sa Amin"
 >
     About
 </a>
@@ -1938,6 +2014,15 @@ footer {
     data-fil="Gallery"
 >
     Gallery
+</a>
+
+
+<a
+    href="#news"
+    data-en="News"
+    data-fil="Balita"
+>
+    News
 </a>
 
 
@@ -2044,8 +2129,8 @@ footer {
 
 
 <p
-    data-en="Turning technology, creativity and learning into opportunities for people and communities."
-    data-fil="Ginagamit ang teknolohiya, pagkamalikhain at pagkatuto upang lumikha ng mga oportunidad para sa mga tao at komunidad."
+    data-en="We are turning technology, creativity, and learning into opportunities for people and communities."
+    data-fil="Ginagawa naming mga oportunidad para sa mga tao at komunidad ang teknolohiya, pagkamalikhain, at pagkatuto."
 >
 
     Turning technology, creativity and learning
@@ -2054,28 +2139,7 @@ footer {
 </p>
 
 
-<a
-    class="button"
-    href="#about"
-    data-en="✨ Explore JHR"
-    data-fil="✨ Tuklasin ang JHR"
->
 
-    ✨ Explore JHR
-
-</a>
-
-
-<a
-    class="button alt"
-    href="#services"
-    data-en="💻 Free Coding Classes"
-    data-fil="💻 Libreng Coding Classes"
->
-
-    💻 Free Coding Classes
-
-</a>
 
 
 </div>
@@ -2088,298 +2152,36 @@ footer {
      ABOUT
 ===================================================== -->
 
-<section
-    class="section"
-    id="about"
->
-
-<h2
-    class="title"
-    data-en="What is JHR?"
-    data-fil="Ano ang JHR?"
->
-
-    What is JHR?
-
-</h2>
-
-
-<p
-    class="subtitle"
-    data-en="JHR — Empowerment Through Technology."
-    data-fil="JHR — Pagpapalakas sa Pamamagitan ng Teknolohiya."
->
-
-    JHR — Empowerment Through Technology.
-
+<section class="section" id="about">
+<h2 class="title" data-en="Who are we?" data-fil="Sino kami?">Who are we?</h2>
+<div class="cards who-are-we-cards">
+<div class="card who-we-are-box">
+<p data-en="JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
+JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology.
 </p>
-
-
-<div class="cards">
-
-
-<div class="card">
-
-<h3
-    data-en="💻 Technology"
-    data-fil="💻 Teknolohiya"
->
-
-    💻 Technology
-
-</h3>
-
-
-<p
-    data-en="We explore technology as a tool for creativity, learning and opportunity."
-    data-fil="Sinasaliksik namin ang teknolohiya bilang kasangkapan sa pagkamalikhain, pagkatuto at oportunidad."
->
-
-    We explore technology as a tool for
-    creativity, learning and opportunity.
-
+<p data-en="Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities." data-fil="Sa pamamagitan ng JHR, nais nilang hikayatin ang mga bata na gamitin ang kanilang pagkamalikhain at imahinasyon at gawing makabuluhang inobasyon ang kanilang mga ideya upang matugunan ang mga tunay na problema sa buhay. Sa pagbibigay sa mga bata ng kaalaman at teknolohiya, hinahangad ng JHR ang isang henerasyon ng mga batang innovator na kayang gawing realidad ang imahinasyon, gamitin ang kanilang mga kasanayan upang magkaroon ng positibong pagbabago sa buhay ng iba, at makatulong sa kapakanan ng kanilang mga komunidad.">
+Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities.
 </p>
-
 </div>
-
-
-<div class="card">
-
-<h3
-    data-en="📚 Education"
-    data-fil="📚 Edukasyon"
->
-
-    📚 Education
-
-</h3>
-
-
-<p
-    data-en="We encourage people to learn useful digital and technology skills."
-    data-fil="Hinihikayat namin ang mga tao na matuto ng kapaki-pakinabang na digital at teknolohikal na kasanayan."
->
-
-    We encourage people to learn useful
-    digital and technology skills.
-
-</p>
-
 </div>
-
-
-<div class="card">
-
-<h3
-    data-en="🌱 Community"
-    data-fil="🌱 Komunidad"
->
-
-    🌱 Community
-
-</h3>
-
-
-<p
-    data-en="Technology can help communities connect, learn and grow."
-    data-fil="Makakatulong ang teknolohiya sa mga komunidad na kumonekta, matuto at umunlad."
->
-
-    Technology can help communities connect,
-    learn and grow.
-
-</p>
-
-</div>
-
-
-<div class="card">
-
-<h3
-    data-en="💡 Innovation"
-    data-fil="💡 Inobasyon"
->
-
-    💡 Innovation
-
-</h3>
-
-
-<p
-    data-en="Every big project starts with an idea and the courage to try."
-    data-fil="Ang bawat malaking proyekto ay nagsisimula sa isang ideya at lakas ng loob na sumubok."
->
-
-    Every big project starts with an idea
-    and the courage to try.
-
-</p>
-
-</div>
-
-
-</div>
-
 </section>
-
-
 
 <!-- =====================================================
      MISSION
 ===================================================== -->
 
-<section
-    class="color-section"
-    id="mission"
->
-
-<h2
-    class="title"
-    data-en="Our Mission"
-    data-fil="Aming Misyon"
->
-
-    Our Mission
-
-</h2>
-
-
-<p
-    class="subtitle"
-    data-en="Empowerment through technology, knowledge and creativity."
-    data-fil="Pagpapalakas sa pamamagitan ng teknolohiya, kaalaman at pagkamalikhain."
->
-
-    Empowerment through technology,
-    knowledge and creativity.
-
+<section class="color-section" id="mission">
+<h2 class="title" data-en="Our Mission" data-fil="Aming Misyon">Our Mission</h2>
+<p class="subtitle mission-subtitle" data-en="We are empowering through technology, creativity, and innovation." data-fil="Pinapalakas namin ang mga tao sa pamamagitan ng teknolohiya, pagkamalikhain, at inobasyon.">
+We are empowering through technology, creativity, and innovation.
 </p>
-
-
 <div class="mission">
-
-
-<div class="mission-card">
-
-<div class="mission-icon">
-    💻
+<div class="mission-card"><div class="mission-icon">💻</div><h3 data-en="Technology" data-fil="Teknolohiya">Technology</h3><p data-en="Promote creative and responsible technology use." data-fil="Itaguyod ang malikhain at responsableng paggamit ng teknolohiya.">Promote creative and responsible technology use.</p></div>
+<div class="mission-card"><div class="mission-icon">🎓</div><h3 data-en="Education" data-fil="Edukasyon">Education</h3><p data-en="Encourage people, particularly children, to learn digital and technology skills." data-fil="Hikayatin ang mga tao, lalo na ang mga bata, na matuto ng mga kasanayang digital at teknolohiya.">Encourage people, particularly children, to learn digital and technology skills.</p></div>
+<div class="mission-card"><div class="mission-icon">🌍</div><h3 data-en="Community" data-fil="Komunidad">Community</h3><p data-en="Explore ways technology can create positive community impact." data-fil="Tuklasin kung paano makalilikha ang teknolohiya ng positibong epekto sa komunidad.">Explore ways technology can create positive community impact.</p></div>
+<div class="mission-card"><div class="mission-icon">🚀</div><h3 data-en="Innovation" data-fil="Inobasyon">Innovation</h3><p data-en="Turn creative ideas into useful projects and experiences." data-fil="Gawing kapaki-pakinabang na proyekto at karanasan ang mga malikhaing ideya.">Turn creative ideas into useful projects and experiences.</p></div>
 </div>
-
-<h3
-    data-en="Technology"
-    data-fil="Teknolohiya"
->
-
-    Technology
-
-</h3>
-
-
-<p
-    data-en="Promote creative and responsible technology use."
-    data-fil="Itaguyod ang malikhain at responsableng paggamit ng teknolohiya."
->
-
-    Promote creative and responsible
-    technology use.
-
-</p>
-
-</div>
-
-
-<div class="mission-card">
-
-<div class="mission-icon">
-    🎓
-</div>
-
-<h3
-    data-en="Education"
-    data-fil="Edukasyon"
->
-
-    Education
-
-</h3>
-
-
-<p
-    data-en="Encourage people to learn digital and technology skills."
-    data-fil="Hikayatin ang mga tao na matuto ng digital at teknolohikal na kasanayan."
->
-
-    Encourage people to learn digital
-    and technology skills.
-
-</p>
-
-</div>
-
-
-<div class="mission-card">
-
-<div class="mission-icon">
-    🌍
-</div>
-
-<h3
-    data-en="Community"
-    data-fil="Komunidad"
->
-
-    Community
-
-</h3>
-
-
-<p
-    data-en="Explore ways technology can create positive community impact."
-    data-fil="Tuklasin kung paano makalilikha ang teknolohiya ng positibong epekto sa komunidad."
->
-
-    Explore ways technology can create
-    positive community impact.
-
-</p>
-
-</div>
-
-
-<div class="mission-card">
-
-<div class="mission-icon">
-    🚀
-</div>
-
-<h3
-    data-en="Innovation"
-    data-fil="Inobasyon"
->
-
-    Innovation
-
-</h3>
-
-
-<p
-    data-en="Turn creative ideas into useful projects and experiences."
-    data-fil="Gawing kapaki-pakinabang na proyekto at karanasan ang mga malikhaing ideya."
->
-
-    Turn creative ideas into useful
-    projects and experiences.
-
-</p>
-
-</div>
-
-
-</div>
-
 </section>
-
-
 
 <!-- =====================================================
      NUMBERS
@@ -2475,316 +2277,40 @@ footer {
      PROJECTS
 ===================================================== -->
 
-<section
-    class="section"
-    id="projects"
->
-
-<h2
-    class="title"
-    data-en="JHR Projects 🚀"
-    data-fil="Mga Proyekto ng JHR 🚀"
->
-
-    JHR Projects 🚀
-
-</h2>
-
-
-<p
-    class="subtitle"
-    data-en="Technology, education and community projects designed around learning and positive impact."
-    data-fil="Mga proyekto sa teknolohiya, edukasyon at komunidad na nakatuon sa pagkatuto at positibong epekto."
->
-
-    Technology, education and community projects
-    designed around learning and positive impact.
-
-</p>
-
-
-<div class="cards">
-
-
-<div class="card">
-
-<h3
-    data-en="💻 Technology Projects"
-    data-fil="💻 Mga Proyektong Teknolohiya"
->
-    💻 Technology Projects
-</h3>
-
-<p
-    data-en="Websites, digital tools, programming, creative technology and experiments."
-    data-fil="Mga website, digital tool, programming, malikhaing teknolohiya at mga eksperimento."
->
-
-    Websites, digital tools, programming,
-    creative technology and experiments.
-
-</p>
-
+<section class="section" id="projects">
+<h2 class="title" data-en="JHR Projects 🚀" data-fil="Mga Proyekto ng JHR 🚀">JHR Projects 🚀</h2>
+<p class="subtitle" data-en="We are designing projects around learning and positive impact." data-fil="Nagdidisenyo kami ng mga proyekto para sa pagkatuto at positibong epekto.">We are designing projects around learning and positive impact.</p>
+<div class="cards project-mini-grid">
+<div class="card project-mini-card"><h3 data-en="💻 Technology Projects" data-fil="💻 Mga Proyektong Teknolohiya">💻 Technology Projects</h3><p data-en="websites, digital tools, programming, creative technology and experiments" data-fil="mga website, digital tool, programming, malikhaing teknolohiya at mga eksperimento">websites, digital tools, programming, creative technology and experiments</p></div>
+<div class="card project-mini-card"><h3 data-en="🏫 Education" data-fil="🏫 Edukasyon">🏫 Education</h3><p data-en="technology-related learning activities and educational experiences" data-fil="mga aktibidad sa pagkatuto tungkol sa teknolohiya at mga karanasang pang-edukasyon">technology-related learning activities and educational experiences</p></div>
+<div class="card project-mini-card"><h3 data-en="🌱 Community" data-fil="🌱 Komunidad">🌱 Community</h3><p data-en="exploring how technology can support communities and agricultural areas" data-fil="pagtuklas kung paano makatutulong ang teknolohiya sa mga komunidad at lugar na pang-agrikultura">exploring how technology can support communities and agricultural areas</p></div>
+<div class="card project-mini-card"><h3 data-en="🚀 Future Projects" data-fil="🚀 Mga Proyektong Hinaharap">🚀 Future Projects</h3><p data-en="more JHR projects will be added as new initiatives are completed" data-fil="mas marami pang proyekto ng JHR ang idaragdag habang natatapos ang mga bagong inisyatiba">more JHR projects will be added as new initiatives are completed</p></div>
 </div>
-
-
-<div class="card">
-
-<h3
-    data-en="🏫 Education"
-    data-fil="🏫 Edukasyon"
->
-    🏫 Education
-</h3>
-
-<p
-    data-en="Technology-related learning activities and educational experiences."
-    data-fil="Mga aktibidad sa pagkatuto tungkol sa teknolohiya at mga karanasang pang-edukasyon."
->
-
-    Technology-related learning activities
-    and educational experiences.
-
-</p>
-
-</div>
-
-
-<div class="card">
-
-<h3
-    data-en="🌱 Community"
-    data-fil="🌱 Komunidad"
->
-    🌱 Community
-</h3>
-
-<p
-    data-en="Exploring how technology can support communities and agricultural areas."
-    data-fil="Tinutuklas kung paano makatutulong ang teknolohiya sa mga komunidad at lugar na pang-agrikultura."
->
-
-    Exploring how technology can support
-    communities and agricultural areas.
-
-</p>
-
-</div>
-
-
-<div class="card">
-
-<h3
-    data-en="🚀 Future Projects"
-    data-fil="🚀 Mga Proyektong Hinaharap"
->
-    🚀 Future Projects
-</h3>
-
-<p
-    data-en="More JHR projects will be added as new initiatives are completed."
-    data-fil="Mas marami pang proyekto ng JHR ang idaragdag habang natatapos ang mga bagong inisyatiba."
->
-
-    More JHR projects will be added as
-    new initiatives are completed.
-
-</p>
-
-</div>
-
-
-</div>
-
 </section>
-
-
 
 <!-- =====================================================
      SERVICES
 ===================================================== -->
 
-<section
-    class="section"
-    id="services"
->
-
-<h2
-    class="title"
-    data-en="JHR Services 💻🎓"
-    data-fil="Mga Serbisyo ng JHR 💻🎓"
->
-
-    JHR Services 💻🎓
-
-</h2>
-
-
-<p
-    class="subtitle"
-    data-en="We provide learning opportunities that help people discover technology and build useful skills."
-    data-fil="Nagbibigay kami ng mga oportunidad sa pagkatuto upang matuklasan ng mga tao ang teknolohiya at makabuo ng kapaki-pakinabang na kasanayan."
->
-
-    We provide learning opportunities that help
-    people discover technology and build useful skills.
-
-</p>
-
-
-<div class="services">
-
-
-<div class="service-card">
-
-<div class="service-icon">
-    💻
+<section class="section" id="services">
+<h2 class="title" data-en="JHR Services 💻🎓" data-fil="Mga Serbisyo ng JHR 💻🎓">JHR Services 💻🎓</h2>
+<p class="subtitle" data-en="We provide learning opportunities that help people discover technology and build useful projects." data-fil="Nagbibigay kami ng mga oportunidad sa pagkatuto upang matuklasan ng mga tao ang teknolohiya at makabuo ng mga kapaki-pakinabang na proyekto.">We provide learning opportunities that help people discover technology and build useful projects.</p>
+<div class="services service-center">
+<div class="service-card"><div class="service-icon">💻</div><h3 data-en="Free Coding Classes" data-fil="Libreng Coding Classes">Free Coding Classes</h3><p data-en="We provide free coding classes for beginners and learners who want to start programming." data-fil="Nagbibigay kami ng libreng coding classes para sa mga baguhan at mga nais magsimulang mag-program.">We provide free coding classes for beginners and learners who want to start programming.</p><span class="free" data-en="FREE" data-fil="LIBRE">FREE</span></div>
+<div class="service-card"><div class="service-icon">🌐</div><h3 data-en="Web Development" data-fil="Web Development">Web Development</h3><p data-en="We build and develop websites using HTML, CSS, and JavaScript" data-fil="Gumagawa at nagde-develop kami ng mga website gamit ang HTML, CSS, at JavaScript">We build and develop websites using HTML, CSS, and JavaScript</p></div>
+<div class="service-card"><div class="service-icon">🚀</div><h3 data-en="Learn by Building" data-fil="Matuto sa Pamamagitan ng Pagbuo">Learn by Building</h3><p data-en="We organize and conduct community outreach for children to learn robotics and coding." data-fil="Nag-oorganisa at nagsasagawa kami ng community outreach para sa mga batang matuto ng robotics at coding.">We organize and conduct community outreach for children to learn robotics and coding.</p></div>
 </div>
-
-<h3
-    data-en="Free Coding Classes"
-    data-fil="Libreng Coding Classes"
->
-
-    Free Coding Classes
-
-</h3>
-
-
-<p
-    data-en="We provide free coding classes for beginners and learners who want to start programming."
-    data-fil="Nagbibigay kami ng libreng coding classes para sa mga baguhan at nais magsimulang mag-program."
->
-
-    We provide free coding classes for
-    beginners and learners who want to
-    start programming.
-
-</p>
-
-
-<span
-    class="free"
-    data-en="FREE"
-    data-fil="LIBRE"
->
-
-    FREE
-
-</span>
-
-</div>
-
-
-<div class="service-card">
-
-<div class="service-icon">
-    🌐
-</div>
-
-<h3
-    data-en="Web Development"
-    data-fil="Web Development"
->
-
-    Web Development
-
-</h3>
-
-
-<p
-    data-en="Learn the basics of building websites using HTML, CSS and JavaScript."
-    data-fil="Matutunan ang mga pangunahing kaalaman sa paggawa ng website gamit ang HTML, CSS at JavaScript."
->
-
-    Learn the basics of building websites
-    using HTML, CSS and JavaScript.
-
-</p>
-
-</div>
-
-
-<div class="service-card">
-
-<div class="service-icon">
-    🚀
-</div>
-
-<h3
-    data-en="Learn by Building"
-    data-fil="Matuto sa Pamamagitan ng Pagbuo"
->
-
-    Learn by Building
-
-</h3>
-
-
-<p
-    data-en="Practice technology by creating simple projects and turning ideas into working experiences."
-    data-fil="Magsanay sa teknolohiya sa pamamagitan ng paggawa ng simpleng proyekto at gawing aktuwal na karanasan ang mga ideya."
->
-
-    Practice technology by creating simple
-    projects and turning ideas into working experiences.
-
-</p>
-
-</div>
-
-
-<div class="service-card">
-
-<div class="service-icon">
-    🌱
-</div>
-
-<h3
-    data-en="Technology Skills"
-    data-fil="Mga Kasanayang Teknolohiya"
->
-
-    Technology Skills
-
-</h3>
-
-
-<p
-    data-en="Develop practical digital skills that can support school, projects and future opportunities."
-    data-fil="Bumuo ng praktikal na digital skills para makatulong sa paaralan, proyekto at mga oportunidad sa hinaharap."
->
-
-    Develop practical digital skills that can
-    support school, projects and future opportunities.
-
-</p>
-
-</div>
-
-
-</div>
-
 <div class="auth-box" id="coding-classes">
-    <h3>📨 Message Staff About Free Coding Classes</h3>
-    <p style="color:var(--muted); margin:8px 0 15px;">Send your question or request directly to the JHR staff. You do not need a staff account to send a message.</p>
-    <form method="POST" action="{{ url_for('coding_class_message') }}">
-        <label for="class-name">Name</label>
-        <input id="class-name" type="text" name="name" maxlength="120" placeholder="Your name" required>
-
-        <label for="class-email">Email</label>
-        <input id="class-email" type="email" name="email" maxlength="200" placeholder="you@example.com" required>
-
-        <label for="class-message">Message</label>
-        <textarea id="class-message" name="message" maxlength="5000" placeholder="Write your message about the free coding classes..." required style="width:100%;min-height:140px;padding:13px;margin:8px 0 14px;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--text);font:inherit;resize:vertical;"></textarea>
-
-        <button class="upload-submit" type="submit">📨 Send Message to Staff</button>
-    </form>
+<h3>📨 Message Staff About Free Coding Classes</h3>
+<p style="color:var(--muted); margin:8px 0 15px;">Send your question or request directly to the JHR staff. You do not need a staff account to send a message.</p>
+<form method="POST" action="{{ url_for('coding_class_message') }}">
+<label for="class-name">Name</label><input id="class-name" type="text" name="name" maxlength="120" placeholder="Your name" required>
+<label for="class-email">Email</label><input id="class-email" type="email" name="email" maxlength="200" placeholder="you@example.com" required>
+<label for="class-message">Message</label><textarea id="class-message" name="message" maxlength="5000" placeholder="Write your message about the free coding classes..." required style="width:100%;min-height:140px;padding:13px;margin:8px 0 14px;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--text);font:inherit;resize:vertical;"></textarea>
+<button class="upload-submit" type="submit">📨 Send Message to Staff</button>
+</form>
 </div>
-
 </section>
-
-
 
 <!-- =====================================================
 GALLERY
@@ -2814,13 +2340,10 @@ GALLERY
 
 <p
     class="subtitle"
-    data-en="Moments of learning, teamwork, technology and community."
-    data-fil="Mga sandali ng pagkatuto, pagtutulungan, teknolohiya at komunidad."
+    data-en="We empower ourselves; we empower others."
+    data-fil="Pinalalakas natin ang ating sarili; pinalalakas natin ang iba."
 >
-
-    Moments of learning, teamwork,
-    technology and community.
-
+    We empower ourselves; we empower others.
 </p>
 
 
@@ -2984,6 +2507,34 @@ GALLERY
 
 
 <!-- =====================================================
+     NEWS & ANNOUNCEMENTS
+===================================================== -->
+
+<section class="section" id="news">
+<h2 class="title" data-en="News & Announcements 📰" data-fil="Balita at Mga Anunsyo 📰">News & Announcements 📰</h2>
+<p class="subtitle" data-en="Stay updated with JHR news, activities, and announcements." data-fil="Manatiling updated sa mga balita, gawain, at anunsyo ng JHR.">Stay updated with JHR news, activities, and announcements.</p>
+<div class="news-grid">
+{% if news_items %}
+    {% for item in news_items %}
+    <article class="news-card">
+        <div class="news-kind">{{ item["kind"] }}</div>
+        <h3>{{ item["title"] }}</h3>
+        <div class="news-meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</div>
+        <p>{{ item["content"] }}</p>
+    </article>
+    {% endfor %}
+{% else %}
+    <article class="news-card">
+        <div class="news-kind">JHR</div>
+        <h3>News & Announcements</h3>
+        <p>New JHR news and announcements will appear here.</p>
+    </article>
+{% endif %}
+</div>
+</section>
+
+
+<!-- =====================================================
      FOUNDERS
 ===================================================== -->
 
@@ -3005,12 +2556,11 @@ GALLERY
 
 <p
     class="subtitle"
-    data-en="The founders behind JHR and its mission of empowerment through technology."
-    data-fil="Ang mga tagapagtatag sa likod ng JHR at ng misyon nitong pagpapalakas sa pamamagitan ng teknolohiya."
+    data-en="Meet the hearts and minds behind the vision."
+    data-fil="Kilalanin ang puso at isip sa likod ng pananaw."
 >
 
-    The founders behind JHR and its mission
-    of empowerment through technology.
+    Meet the hearts and minds behind the vision.
 
 </p>
 
@@ -3053,12 +2603,12 @@ GALLERY
 
 
 <p
-    data-en="Helps guide JHR's vision, projects and technology-focused activities."
+    data-en="Hugo helps guide JHR's vision, projects, and technology-focused activities."
     data-fil="Tumutulong sa paggabay sa pananaw, mga proyekto at mga aktibidad ng JHR na nakatuon sa teknolohiya."
 >
 
-    Helps guide JHR's vision,
-    projects and technology-focused activities.
+    Hugo helps guide JHR's vision, projects,
+    and technology-focused activities.
 
 </p>
 
@@ -3102,12 +2652,12 @@ GALLERY
 
 
 <p
-    data-en="Supports JHR's creativity, projects and community-focused activities."
+    data-en="Julia supports JHR's creativity, projects, and community-focused activities."
     data-fil="Sinusuportahan ang pagkamalikhain, mga proyekto at mga aktibidad ng JHR para sa komunidad."
 >
 
-    Supports JHR's creativity,
-    projects and community-focused activities.
+    Julia supports JHR's creativity, projects,
+    and community-focused activities.
 
 </p>
 
@@ -4161,7 +3711,8 @@ def home():
     return render_template_string(
         HTML,
         viewer_count=viewer_count,
-        uploaded_images=gallery_images()
+        uploaded_images=gallery_images(),
+        news_items=news_items()
     )
 
 
@@ -4325,6 +3876,7 @@ def staff_dashboard():
         STAFF_DASHBOARD_HTML,
         messages=messages,
         staff_accounts=staff_accounts,
+        news_items=news_items(),
         staff_username=session.get("staff_username")
     )
 
@@ -4426,6 +3978,44 @@ def delete_staff_message(message_id):
         flash("Message not found.")
 
     conn.close()
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/add-news", methods=["POST"])
+@staff_required
+def add_news_item():
+    kind = request.form.get("kind", "Announcement").strip()
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+
+    if kind not in {"News", "Announcement"}:
+        kind = "Announcement"
+    if not title or not content:
+        flash("Please enter a title and message.")
+        return redirect(url_for("staff_dashboard"))
+    if len(title) > 160 or len(content) > 10000:
+        flash("The news title or content is too long.")
+        return redirect(url_for("staff_dashboard"))
+
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO news_items (kind, title, content, author_id) VALUES (?, ?, ?, ?)",
+        (kind, title, content, session["staff_id"])
+    )
+    conn.commit()
+    conn.close()
+    flash(f"{kind} published successfully.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/delete-news/<int:news_id>", methods=["POST"])
+@staff_required
+def delete_news_item(news_id):
+    conn = get_db()
+    conn.execute("DELETE FROM news_items WHERE id = ?", (news_id,))
+    conn.commit()
+    conn.close()
+    flash("News/announcement deleted.")
     return redirect(url_for("staff_dashboard"))
 
 
