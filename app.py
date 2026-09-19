@@ -2175,7 +2175,7 @@ footer {
 </h1>
 
 <h2 class="hero-organization-title">
-    JHR: Empowerment Through Technology
+    Empowerment Through Technology
 </h2>
 
 
