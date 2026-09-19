@@ -1245,6 +1245,15 @@ body.dark .title {
     margin:18px auto 0;
     white-space:pre-line;
 }
+.hero-organization-title {
+    text-align:center;
+    color:#ffffff;
+    font-size:clamp(24px,3.2vw,42px);
+    font-weight:900;
+    line-height:1.15;
+    margin:12px 0 18px;
+}
+
 .who-are-we-cards {
     display: flex;
     justify-content: center;
@@ -2165,6 +2174,10 @@ footer {
     JHR
 </h1>
 
+<h2 class="hero-organization-title">
+    JHR: Empowerment Through Technology
+</h2>
+
 
 
 
@@ -2192,7 +2205,7 @@ for people and communities.
 <h2 class="title" data-en="Who Are We?" data-fil="Sino Kami?">Who Are We?</h2>
 <div class="cards who-are-we-cards">
 <div class="card who-we-are-box">
-<p class="who-description" data-en="JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
+<p class="who-description" data-en="JHR: JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
 JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology.
 </p>
 <p class="who-description" data-en="Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities." data-fil="Sa pamamagitan ng JHR, nais nilang hikayatin ang mga bata na gamitin ang kanilang pagkamalikhain at imahinasyon at gawing makabuluhang inobasyon ang kanilang mga ideya upang matugunan ang mga tunay na problema sa buhay. Sa pagbibigay sa mga bata ng kaalaman at teknolohiya, hinahangad ng JHR ang isang henerasyon ng mga batang innovator na kayang gawing realidad ang imahinasyon, gamitin ang kanilang mga kasanayan upang magkaroon ng positibong pagbabago sa buhay ng iba, at makatulong sa kapakanan ng kanilang mga komunidad.">
@@ -2425,7 +2438,7 @@ GALLERY
 
 <h3
     data-en="It's Building Time!"
-    data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
+    data-fil="💻 Aktibidad sa Teknolohiya ng JHR!"
 >
 
     It's Building Time!
@@ -2511,7 +2524,7 @@ GALLERY
 
 <h3
     data-en="It's Scratch Time!"
-    data-fil="🏫 Ozamiz Elementary School"
+    data-fil="It's Scratch Time!"
 >
 
     It's Scratch Time!
