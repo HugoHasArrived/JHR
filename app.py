@@ -4039,7 +4039,6 @@ AUTH_HTML = r"""
 <label>Password</label><input type="password" name="password" required autocomplete="current-password">
 <button type="submit">{{ action }}</button>
 </form>
-{% if title == "Login" %}<a href="{{ url_for('register') }}">Create an account</a>{% else %}<a href="{{ url_for('login') }}">Already have an account? Log in</a>{% endif %}
 <a href="{{ url_for('home') }}">← Back to JHR</a>
 </div>
 </body>
@@ -4050,61 +4049,36 @@ AUTH_HTML = r"""
 # REGISTER
 # =========================================================
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-
-        if len(username) < 3 or len(password) < 6:
-            flash("Username must be at least 3 characters and password at least 6 characters.")
-            return redirect(url_for("register"))
-
-        conn = get_db()
-        try:
-            conn.execute(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                (username, generate_password_hash(password))
-            )
-            conn.commit()
-        except sqlite3.IntegrityError:
-            conn.close()
-            flash("That username is already registered.")
-            return redirect(url_for("register"))
-        conn.close()
-        flash("Account created. You can now log in.")
-        return redirect(url_for("login"))
-
-    return render_template_string(AUTH_HTML, title="Register", action="Register", message="Create your JHR account.")
-
-
 # =========================================================
-# LOGIN
+# FIXED LOGIN ACCOUNT
+# Username: admin
+# Password: admin123
 # =========================================================
+
+LOGIN_USERNAME = "admin"
+LOGIN_PASSWORD = "admin123"
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        conn = get_db()
-        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        conn.close()
 
-        if user and check_password_hash(user["password"], password):
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
-            flash("Welcome back, " + user["username"] + "!")
+        if username == LOGIN_USERNAME and password == LOGIN_PASSWORD:
+            session["user_id"] = 1
+            session["username"] = LOGIN_USERNAME
+            flash("Welcome back, " + LOGIN_USERNAME + "!")
             return redirect(url_for("home"))
 
         flash("Invalid username or password.")
 
-    return render_template_string(AUTH_HTML, title="Login", action="Login", message="Log in to import pictures into the gallery.")
-
-
-# =========================================================
-# LOGOUT
-# =========================================================
+    return render_template_string(
+        AUTH_HTML,
+        title="Login",
+        action="Login",
+        message="Log in to import pictures into the gallery."
+    )
 
 @app.route("/logout")
 def logout():
