@@ -211,6 +211,12 @@ a{color:#b894ff}
 .message:first-child{border-top:0}
 .meta{color:#aab4c2;font-size:14px}
 .notice{padding:12px;border-radius:10px;background:#241d3c;margin-bottom:8px}
+
+.who-are-we-cards{display:flex;justify-content:center;align-items:center}
+.who-we-are-box{width:min(950px,100%);margin:0 auto;text-align:center}
+.who-we-are-box p{margin:0;text-align:center;font-weight:700;text-indent:2em;line-height:1.9}
+.who-we-are-box p + p{margin-top:32px}
+
 </style>
 </head>
 <body>
@@ -1234,9 +1240,10 @@ body.dark .title {
 /* Final requested visual refinements */
 .hero-content { text-align: center; }
 .hero-content .hero-message {
-    text-align: center;
-    max-width: 1000px;
-    margin: 18px auto 0;
+    text-align:center;
+    max-width:1000px;
+    margin:18px auto 0;
+    white-space:pre-line;
 }
 .who-are-we-cards {
     display: flex;
@@ -1253,10 +1260,10 @@ body.dark .title {
     font-weight: 700;
     text-indent: 2em;
     line-height: 1.9;
-    margin: 0 0 30px;
+    margin: 0;
 }
-.who-we-are-box p:last-child {
-    margin-bottom: 0;
+.who-we-are-box p + p {
+    margin-top: 32px;
 }
 .mission-white { color: #fff !important; text-align: center; }
 .project-mini-grid { justify-content: center; align-items: stretch; }
@@ -1264,7 +1271,7 @@ body.dark .title {
 .project-mini-card p { text-align: center; }
 .service-center { justify-content: center; align-items: stretch; }
 .service-center .service-card { max-width: 360px; margin: 0 auto; text-align: center; }
-.service-center .service-card p { text-align: center; }
+.service-center .service-card p { text-align: center; white-space: pre-line; }
 .gallery-grid { justify-items: center; }
 .gallery-card { text-align: center; }
 .gallery-caption { text-align: center; }
@@ -2161,11 +2168,10 @@ footer {
 
 
 
-<p class="hero-message" data-en="We are turning technology, creativity, and learning into opportunities for people and communities." data-fil="Ginagawa naming mga oportunidad para sa mga tao at komunidad ang teknolohiya, pagkamalikhain, at pagkatuto.">
-
-    We are turning technology, creativity, and learning into opportunities
-    <br>for people and communities.
-
+<p class="hero-message" data-en="We are turning technology, creativity, and learning into opportunities
+for people and communities." data-fil="Ginagawa naming mga oportunidad para sa mga tao at komunidad ang teknolohiya, pagkamalikhain, at pagkatuto.">
+We are turning technology, creativity, and learning into opportunities
+for people and communities.
 </p>
 
 
@@ -2186,7 +2192,7 @@ footer {
 <h2 class="title" data-en="Who Are We?" data-fil="Sino Kami?">Who Are We?</h2>
 <div class="cards who-are-we-cards">
 <div class="card who-we-are-box">
-<p class="who-description" data-en="Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
+<p class="who-description" data-en="JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
 JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology.
 </p>
 <p class="who-description" data-en="Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities." data-fil="Sa pamamagitan ng JHR, nais nilang hikayatin ang mga bata na gamitin ang kanilang pagkamalikhain at imahinasyon at gawing makabuluhang inobasyon ang kanilang mga ideya upang matugunan ang mga tunay na problema sa buhay. Sa pagbibigay sa mga bata ng kaalaman at teknolohiya, hinahangad ng JHR ang isang henerasyon ng mga batang innovator na kayang gawing realidad ang imahinasyon, gamitin ang kanilang mga kasanayan upang magkaroon ng positibong pagbabago sa buhay ng iba, at makatulong sa kapakanan ng kanilang mga komunidad.">
@@ -2328,7 +2334,7 @@ We are empowering through technology, creativity, and innovation.
 <div class="services service-center">
 <div class="service-card"><div class="service-icon">💻</div><h3 data-en="Free Coding Classes" data-fil="Libreng Coding Classes">Free Coding Classes</h3><p data-en="We provide free coding classes for beginners and learners who want to start programming." data-fil="Nagbibigay kami ng libreng coding classes para sa mga baguhan at mga nais magsimulang mag-program.">We provide free coding classes for beginners and learners who want to start programming.</p><span class="free" data-en="FREE" data-fil="LIBRE">FREE</span></div>
 <div class="service-card"><div class="service-icon">🌐</div><h3 data-en="Web Development" data-fil="Web Development">Web Development</h3><p data-en="We build and develop websites using HTML, CSS, and JavaScript." data-fil="Gumagawa at nagde-develop kami ng mga website gamit ang HTML, CSS, at JavaScript">We build and develop websites using HTML, CSS, and JavaScript.</p></div>
-<div class="service-card"><div class="service-icon">🚀</div><h3 data-en="Learn by Building" data-fil="Matuto sa Pamamagitan ng Pagbuo">Learn by Building</h3><p data-en="We organize and conduct community outreach for children to learn robotics and coding." data-fil="Nag-oorganisa at nagsasagawa kami ng community outreach para sa mga batang matuto ng robotics at coding.">We organize and conduct community outreach for children to learn<br>robotics and coding.</p></div>
+<div class="service-card"><div class="service-icon">🚀</div><h3 data-en="Learn by Building" data-fil="Matuto sa Pamamagitan ng Pagbuo">Learn by Building</h3><p data-en="We organize and conduct community outreach for children to learn\nrobotics and coding." data-fil="Nag-oorganisa at nagsasagawa kami ng community outreach para sa mga batang matuto ng robotics at coding.">We organize and conduct community outreach for children to learn<br>robotics and coding.</p></div>
 </div>
 <div class="auth-box" id="coding-classes">
 <h3>📨 Message Staff About Free Coding Classes</h3>
