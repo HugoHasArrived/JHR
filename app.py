@@ -33,8 +33,9 @@ app.secret_key = os.environ.get(
 # mongodb://127.0.0.1:27017/
 MONGO_URI = os.environ.get(
     "MONGO_URI",
-    "mongodb://127.0.0.1:27017/"
+    "mongodb+srv://josehugorafaeltan_db_user:CG4Gvfq2rOjelCHx@jhrwebsite.xaryu3e.mongodb.net/?retryWrites=true&w=majority"
 )
+
 MONGO_DB_NAME = os.environ.get(
     "MONGO_DB_NAME",
     "jhr_database"
