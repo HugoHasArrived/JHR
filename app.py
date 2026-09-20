@@ -2834,7 +2834,7 @@ GALLERY
 <img
     class="coordinator-photo"
     src="/media/Loveth"
-    alt="Loveth Doctor Cagud"
+    alt="Loveth D. Cagud"
     loading="lazy"
     decoding="async"
     onerror="imageError(this)"
@@ -2843,7 +2843,7 @@ GALLERY
 <div class="coordinator-info">
 
 <h3>
-    Loveth Doctor Cagud
+    Loveth D. Cagud
 </h3>
 
 <div
@@ -2856,10 +2856,10 @@ GALLERY
 
 <p
     class="coordinator-location"
-    data-en="Ozamiz"
-    data-fil="Ozamiz"
+    data-en="Misamis Occidental"
+    data-fil="Misamis Occidental"
 >
-    Ozamiz
+    Misamis Occidental
 </p>
 
 </div>
