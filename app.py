@@ -1478,6 +1478,72 @@ body.dark .title {
 }
 
 
+
+.coordinator-section {
+    margin-top: 55px;
+    text-align: center;
+}
+
+.coordinator-section-title {
+    color: var(--purple);
+    font-size: clamp(28px, 4vw, 40px);
+    margin: 0 0 10px;
+}
+
+.coordinator-grid {
+    max-width: 1050px;
+    margin: 25px auto 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+}
+
+.coordinator-card {
+    overflow: hidden;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border-top: 5px solid var(--purple);
+    text-align: center;
+}
+
+.coordinator-photo {
+    width: 100%;
+    height: 430px;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    background: var(--purple-soft);
+}
+
+.coordinator-info {
+    padding: 25px;
+}
+
+.coordinator-info h3 {
+    color: var(--purple);
+    font-size: 24px;
+    margin: 0 0 8px;
+}
+
+.coordinator-role {
+    color: var(--pink);
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.coordinator-location {
+    color: var(--muted);
+    font-weight: 700;
+    margin: 0;
+}
+
+@media (max-width: 760px) {
+    .coordinator-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* =====================================================
    GAMES
 ===================================================== */
@@ -2175,7 +2241,7 @@ footer {
 </h1>
 
 <h2 class="hero-organization-title">
-    Empowerment Through Technology
+    JHR: Empowerment Through Technology
 </h2>
 
 
@@ -2437,11 +2503,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Building Time!"
-    data-fil="💻 Aktibidad sa Teknolohiya ng JHR!"
+    data-en="It's Building Time"
+    data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
 >
 
-    It's Building Time!
+    It's Building Time
 
 </h3>
 
@@ -2480,11 +2546,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="Community Time"
+    data-en="It's LEGO SPIKE Prime Time"
     data-fil="🤝 Pagkatuto sa Komunidad"
 >
 
-    Community Time
+    It's LEGO SPIKE Prime Time
 
 </h3>
 
@@ -2523,11 +2589,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Scratch Time!"
-    data-fil="It's Scratch Time!"
+    data-en="It's Scratch Time"
+    data-fil="It's Scratch Time"
 >
 
-    It's Scratch Time!
+    It's Scratch Time
 
 </h3>
 
@@ -2714,6 +2780,106 @@ GALLERY
 
 </div>
 
+
+
+<div class="coordinator-section">
+
+<h3
+    class="coordinator-section-title"
+    data-en="Coordinators"
+    data-fil="Mga Coordinator"
+>
+    Coordinators
+</h3>
+
+<p
+    class="subtitle"
+    data-en="Meet the local and national coordinators supporting JHR's work."
+    data-fil="Kilalanin ang mga lokal at pambansang coordinator na sumusuporta sa gawain ng JHR."
+>
+    Meet the local and national coordinators supporting JHR's work.
+</p>
+
+<div class="coordinator-grid">
+
+<div class="coordinator-card">
+
+<img
+    class="coordinator-photo"
+    src="/media/Loveth"
+    alt="Loveth Doctor Cagud"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+<div class="coordinator-info">
+
+<h3>
+    Loveth Doctor Cagud
+</h3>
+
+<div
+    class="coordinator-role"
+    data-en="Local Coordinator"
+    data-fil="Lokal na Coordinator"
+>
+    Local Coordinator
+</div>
+
+<p
+    class="coordinator-location"
+    data-en="Ozamiz"
+    data-fil="Ozamiz"
+>
+    Ozamiz
+</p>
+
+</div>
+
+</div>
+
+
+<div class="coordinator-card">
+
+<img
+    class="coordinator-photo"
+    src="/media/Tagupa"
+    alt="May Hazel M. Tagupa"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+<div class="coordinator-info">
+
+<h3>
+    May Hazel M. Tagupa
+</h3>
+
+<div
+    class="coordinator-role"
+    data-en="National Coordinator"
+    data-fil="Pambansang Coordinator"
+>
+    National Coordinator
+</div>
+
+<p
+    class="coordinator-location"
+    data-en="Philippines"
+    data-fil="Pilipinas"
+>
+    Philippines
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
 </section>
 
 
