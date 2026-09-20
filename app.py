@@ -2,8 +2,13 @@ from flask import Flask, render_template_string, send_from_directory, abort, req
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
-import sqlite3
 from functools import wraps
+from datetime import datetime
+
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError, PyMongoError
+from bson import ObjectId
+from bson.errors import InvalidId
 
 app = Flask(
     __name__,
@@ -14,94 +19,115 @@ app = Flask(
 viewer_count = 0
 
 # =========================================================
-# LOGIN / GALLERY SETTINGS
+# LOGIN / GALLERY / MONGODB SETTINGS
 # =========================================================
 
-app.secret_key = os.environ.get("JHR_SECRET_KEY", "change-this-secret-key")
-DATABASE = "jhr_users.db"
+app.secret_key = os.environ.get(
+    "JHR_SECRET_KEY",
+    "change-this-secret-key"
+)
+
+# MongoDB Atlas example:
+# mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority
+# Local MongoDB example:
+# mongodb://127.0.0.1:27017/
+MONGO_URI = os.environ.get(
+    "MONGO_URI",
+    "mongodb://127.0.0.1:27017/"
+)
+MONGO_DB_NAME = os.environ.get(
+    "MONGO_DB_NAME",
+    "jhr_database"
+)
+
 GALLERY_FOLDER = os.path.join(app.static_folder, "gallery")
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 os.makedirs(GALLERY_FOLDER, exist_ok=True)
 
 
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# =========================================================
+# MONGODB CONNECTION
+# =========================================================
+
+try:
+    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
+    mongo_client.admin.command("ping")
+    mongo_db = mongo_client[MONGO_DB_NAME]
+
+    staff_accounts_collection = mongo_db["staff_accounts"]
+    class_messages_collection = mongo_db["class_messages"]
+    news_collection = mongo_db["news_items"]
+
+    staff_accounts_collection.create_index("username", unique=True)
+
+except PyMongoError as exc:
+    raise RuntimeError(
+        "Could not connect to MongoDB. Set MONGO_URI to your MongoDB Atlas "
+        "connection string or make sure local MongoDB is running."
+    ) from exc
 
 
-def init_db():
-    conn = get_db()
+def now_string():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Kept for compatibility with the earlier version.
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    """)
 
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS staff_accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS class_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            message TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS news_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kind TEXT NOT NULL DEFAULT 'Announcement',
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            author_id INTEGER
-        )
-    """)
-
-    existing = conn.execute(
-        "SELECT id FROM staff_accounts WHERE username = ?",
-        ("admin",)
-    ).fetchone()
-
-    if not existing:
-        conn.execute(
-            "INSERT INTO staff_accounts (username, password) VALUES (?, ?)",
-            ("admin", generate_password_hash("admin123"))
-        )
-
-    conn.commit()
-    conn.close()
+def init_mongodb():
+    # Default staff login:
+    # username = admin
+    # password = admin123
+    if not staff_accounts_collection.find_one({"username": "admin"}):
+        try:
+            staff_accounts_collection.insert_one({
+                "username": "admin",
+                "password": generate_password_hash("admin123"),
+                "created_at": now_string()
+            })
+        except DuplicateKeyError:
+            pass
 
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def normalize_staff(doc):
+    return {
+        "id": str(doc["_id"]),
+        "username": doc.get("username", ""),
+        "created_at": doc.get("created_at", "")
+    }
+
+
+def normalize_message(doc):
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name", ""),
+        "email": doc.get("email", ""),
+        "message": doc.get("message", ""),
+        "created_at": doc.get("created_at", "")
+    }
+
+
 def news_items():
-    conn = get_db()
-    items = conn.execute(
-        """
-        SELECT news_items.*, staff_accounts.username AS author
-        FROM news_items
-        LEFT JOIN staff_accounts ON staff_accounts.id = news_items.author_id
-        ORDER BY news_items.id DESC
-        """
-    ).fetchall()
-    conn.close()
+    items = []
+    for doc in news_collection.find().sort("created_at", -1):
+        author = ""
+        author_id = doc.get("author_id")
+        if author_id:
+            try:
+                author_doc = staff_accounts_collection.find_one({"_id": ObjectId(author_id)})
+                if author_doc:
+                    author = author_doc.get("username", "")
+            except (InvalidId, TypeError):
+                pass
+        items.append({
+            "id": str(doc["_id"]),
+            "kind": doc.get("kind", "Announcement"),
+            "title": doc.get("title", ""),
+            "content": doc.get("content", ""),
+            "created_at": doc.get("created_at", ""),
+            "author": author
+        })
     return items
 
 
@@ -114,7 +140,7 @@ def gallery_images():
     return images
 
 
-init_db()
+init_mongodb()
 
 
 # =========================================================
@@ -2241,7 +2267,7 @@ footer {
 </h1>
 
 <h2 class="hero-organization-title">
-    JHR: Empowerment Through Technology
+    Empowerment Through Technology
 </h2>
 
 
@@ -2271,7 +2297,7 @@ for people and communities.
 <h2 class="title" data-en="Who Are We?" data-fil="Sino Kami?">Who Are We?</h2>
 <div class="cards who-are-we-cards">
 <div class="card who-we-are-box">
-<p class="who-description" data-en="JHR: JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
+<p class="who-description" data-en="JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
 JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology.
 </p>
 <p class="who-description" data-en="Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities." data-fil="Sa pamamagitan ng JHR, nais nilang hikayatin ang mga bata na gamitin ang kanilang pagkamalikhain at imahinasyon at gawing makabuluhang inobasyon ang kanilang mga ideya upang matugunan ang mga tunay na problema sa buhay. Sa pagbibigay sa mga bata ng kaalaman at teknolohiya, hinahangad ng JHR ang isang henerasyon ng mga batang innovator na kayang gawing realidad ang imahinasyon, gamitin ang kanilang mga kasanayan upang magkaroon ng positibong pagbabago sa buhay ng iba, at makatulong sa kapakanan ng kanilang mga komunidad.">
@@ -2503,11 +2529,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Building Time"
+    data-en="It's Building Time!"
     data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
 >
 
-    It's Building Time
+    It's Building Time!
 
 </h3>
 
@@ -2546,11 +2572,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's LEGO SPIKE Prime Time"
+    data-en="Community Time"
     data-fil="🤝 Pagkatuto sa Komunidad"
 >
 
-    It's LEGO SPIKE Prime Time
+    Community Time
 
 </h3>
 
@@ -2589,11 +2615,11 @@ GALLERY
 <div class="gallery-caption">
 
 <h3
-    data-en="It's Scratch Time"
-    data-fil="It's Scratch Time"
+    data-en="It's Scratch Time!"
+    data-fil="It's Scratch Time!"
 >
 
-    It's Scratch Time
+    It's Scratch Time!
 
 </h3>
 
@@ -3974,18 +4000,13 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        conn = get_db()
-        staff = conn.execute(
-            "SELECT * FROM staff_accounts WHERE username = ?",
-            (username,)
-        ).fetchone()
-        conn.close()
+        staff = staff_accounts_collection.find_one({"username": username})
 
-        if staff and check_password_hash(staff["password"], password):
+        if staff and check_password_hash(staff.get("password", ""), password):
             session.clear()
-            session["staff_id"] = staff["id"]
-            session["staff_username"] = staff["username"]
-            flash("Welcome, " + staff["username"] + "!")
+            session["staff_id"] = str(staff["_id"])
+            session["staff_username"] = staff.get("username", username)
+            flash("Welcome, " + staff.get("username", username) + "!")
             return redirect(url_for("home"))
 
         flash("Invalid staff username or password.")
@@ -3994,7 +4015,7 @@ def login():
         AUTH_HTML,
         title="Staff Login",
         action="Login",
-        message="Log in to manage gallery pictures and coding-class messages."
+        message="Log in to manage gallery pictures, messages, and news."
     )
 
 
@@ -4056,13 +4077,12 @@ def coding_class_message():
         flash("Please keep your name, email, and message within the allowed length.")
         return redirect(url_for("home") + "#coding-classes")
 
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO class_messages (name, email, message) VALUES (?, ?, ?)",
-        (name, email, message)
-    )
-    conn.commit()
-    conn.close()
+    class_messages_collection.insert_one({
+        "name": name,
+        "email": email,
+        "message": message,
+        "created_at": now_string()
+    })
 
     flash("Your message was sent to the JHR staff.")
     return redirect(url_for("home") + "#coding-classes")
@@ -4075,14 +4095,15 @@ def coding_class_message():
 @app.route("/staff")
 @staff_required
 def staff_dashboard():
-    conn = get_db()
-    messages = conn.execute(
-        "SELECT * FROM class_messages ORDER BY id DESC"
-    ).fetchall()
-    staff_accounts = conn.execute(
-        "SELECT id, username, created_at FROM staff_accounts ORDER BY username"
-    ).fetchall()
-    conn.close()
+    messages = [
+        normalize_message(doc)
+        for doc in class_messages_collection.find().sort("created_at", -1)
+    ]
+
+    staff_accounts = [
+        normalize_staff(doc)
+        for doc in staff_accounts_collection.find().sort("username", 1)
+    ]
 
     return render_template_string(
         STAFF_DASHBOARD_HTML,
@@ -4108,23 +4129,19 @@ def change_staff_password():
         flash("New passwords do not match.")
         return redirect(url_for("staff_dashboard"))
 
-    conn = get_db()
-    staff = conn.execute(
-        "SELECT * FROM staff_accounts WHERE id = ?",
-        (session["staff_id"],)
-    ).fetchone()
+    try:
+        staff = staff_accounts_collection.find_one({"_id": ObjectId(session["staff_id"])})
+    except (InvalidId, TypeError):
+        staff = None
 
-    if not staff or not check_password_hash(staff["password"], current_password):
-        conn.close()
+    if not staff or not check_password_hash(staff.get("password", ""), current_password):
         flash("Current password is incorrect.")
         return redirect(url_for("staff_dashboard"))
 
-    conn.execute(
-        "UPDATE staff_accounts SET password = ? WHERE id = ?",
-        (generate_password_hash(new_password), session["staff_id"])
+    staff_accounts_collection.update_one(
+        {"_id": staff["_id"]},
+        {"$set": {"password": generate_password_hash(new_password)}}
     )
-    conn.commit()
-    conn.close()
 
     flash("Your staff password has been changed.")
     return redirect(url_for("staff_dashboard"))
@@ -4140,56 +4157,43 @@ def add_staff_account():
     if len(username) < 3:
         flash("Staff username must be at least 3 characters.")
         return redirect(url_for("staff_dashboard"))
-
     if len(username) > 80:
         flash("Staff username is too long.")
         return redirect(url_for("staff_dashboard"))
-
     if len(password) < 6:
         flash("Staff password must be at least 6 characters.")
         return redirect(url_for("staff_dashboard"))
-
     if password != confirm_password:
         flash("New staff passwords do not match.")
         return redirect(url_for("staff_dashboard"))
 
-    conn = get_db()
     try:
-        conn.execute(
-            "INSERT INTO staff_accounts (username, password) VALUES (?, ?)",
-            (username, generate_password_hash(password))
-        )
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
+        staff_accounts_collection.insert_one({
+            "username": username,
+            "password": generate_password_hash(password),
+            "created_at": now_string()
+        })
+    except DuplicateKeyError:
         flash("That staff username already exists.")
         return redirect(url_for("staff_dashboard"))
 
-    conn.close()
     flash("New staff account created.")
     return redirect(url_for("staff_dashboard"))
 
 
-@app.route("/staff/delete-message/<int:message_id>", methods=["POST"])
+@app.route("/staff/delete-message/<message_id>", methods=["POST"])
 @staff_required
 def delete_staff_message(message_id):
-    conn = get_db()
-    message = conn.execute(
-        "SELECT id FROM class_messages WHERE id = ?",
-        (message_id,)
-    ).fetchone()
+    try:
+        result = class_messages_collection.delete_one({"_id": ObjectId(message_id)})
+    except (InvalidId, TypeError):
+        result = None
 
-    if message:
-        conn.execute(
-            "DELETE FROM class_messages WHERE id = ?",
-            (message_id,)
-        )
-        conn.commit()
+    if result and result.deleted_count:
         flash("Message deleted successfully.")
     else:
         flash("Message not found.")
 
-    conn.close()
     return redirect(url_for("staff_dashboard"))
 
 
@@ -4209,25 +4213,38 @@ def add_news_item():
         flash("The news title or content is too long.")
         return redirect(url_for("staff_dashboard"))
 
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO news_items (kind, title, content, author_id) VALUES (?, ?, ?, ?)",
-        (kind, title, content, session["staff_id"])
-    )
-    conn.commit()
-    conn.close()
+    try:
+        author_id = ObjectId(session["staff_id"])
+    except (InvalidId, TypeError):
+        flash("Your staff session is invalid. Please log in again.")
+        session.clear()
+        return redirect(url_for("login"))
+
+    news_collection.insert_one({
+        "kind": kind,
+        "title": title,
+        "content": content,
+        "created_at": now_string(),
+        "author_id": str(author_id)
+    })
+
     flash(f"{kind} published successfully.")
     return redirect(url_for("staff_dashboard"))
 
 
-@app.route("/staff/delete-news/<int:news_id>", methods=["POST"])
+@app.route("/staff/delete-news/<news_id>", methods=["POST"])
 @staff_required
 def delete_news_item(news_id):
-    conn = get_db()
-    conn.execute("DELETE FROM news_items WHERE id = ?", (news_id,))
-    conn.commit()
-    conn.close()
-    flash("News/announcement deleted.")
+    try:
+        result = news_collection.delete_one({"_id": ObjectId(news_id)})
+    except (InvalidId, TypeError):
+        result = None
+
+    if result and result.deleted_count:
+        flash("News/announcement deleted.")
+    else:
+        flash("News/announcement not found.")
+
     return redirect(url_for("staff_dashboard"))
 
 
@@ -4245,8 +4262,11 @@ def uploaded_gallery_image(filename):
 
 @app.route("/health")
 def health():
-
-    return "JHR is running!", 200
+    try:
+        mongo_client.admin.command("ping")
+        return "JHR is running! MongoDB is connected.", 200
+    except PyMongoError:
+        return "JHR is running, but MongoDB is unavailable.", 503
 
 
 # =========================================================
