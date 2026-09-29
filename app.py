@@ -3,7 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -17,6 +18,12 @@ app = Flask(
 )
 
 viewer_count = 0
+
+# Staff sessions expire after 5 minutes of inactivity.
+STAFF_SESSION_TIMEOUT = timedelta(minutes=5)
+app.config["PERMANENT_SESSION_LIFETIME"] = STAFF_SESSION_TIMEOUT
+app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
 # =========================================================
 # LOGIN / GALLERY / MONGODB SETTINGS
@@ -42,8 +49,10 @@ MONGO_DB_NAME = os.environ.get(
 )
 
 GALLERY_FOLDER = os.path.join(app.static_folder, "gallery")
+NEWS_FOLDER = os.path.join(app.static_folder, "news_uploads")
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 os.makedirs(GALLERY_FOLDER, exist_ok=True)
+os.makedirs(NEWS_FOLDER, exist_ok=True)
 
 
 # =========================================================
@@ -58,8 +67,10 @@ try:
     staff_accounts_collection = mongo_db["staff_accounts"]
     class_messages_collection = mongo_db["class_messages"]
     news_collection = mongo_db["news_items"]
+    gallery_collection = mongo_db["gallery_items"]
 
     staff_accounts_collection.create_index("username", unique=True)
+    gallery_collection.create_index("filename", unique=True)
 
 except PyMongoError as exc:
     raise RuntimeError(
@@ -121,23 +132,60 @@ def news_items():
                     author = author_doc.get("username", "")
             except (InvalidId, TypeError):
                 pass
+
+        image_files = [
+            name for name in doc.get("images", [])
+            if name and os.path.isfile(os.path.join(NEWS_FOLDER, os.path.basename(name)))
+        ]
+
         items.append({
             "id": str(doc["_id"]),
             "kind": doc.get("kind", "Announcement"),
             "title": doc.get("title", ""),
             "content": doc.get("content", ""),
             "created_at": doc.get("created_at", ""),
-            "author": author
+            "author": author,
+            "images": image_files
         })
     return items
 
 
 def gallery_images():
     images = []
+    existing_metadata = {
+        doc.get("filename"): doc
+        for doc in gallery_collection.find()
+        if doc.get("filename")
+    }
+
     if os.path.isdir(GALLERY_FOLDER):
         for filename in sorted(os.listdir(GALLERY_FOLDER)):
-            if allowed_file(filename):
-                images.append(filename)
+            if not allowed_file(filename):
+                continue
+
+            doc = existing_metadata.get(filename)
+
+            # Keep previously uploaded gallery files working even if they
+            # were uploaded before gallery metadata was introduced.
+            if not doc:
+                doc = {
+                    "filename": filename,
+                    "title": os.path.splitext(filename)[0],
+                    "description": "Imported picture",
+                    "created_at": now_string()
+                }
+                try:
+                    gallery_collection.insert_one(doc.copy())
+                except DuplicateKeyError:
+                    pass
+
+            images.append({
+                "id": str(doc.get("_id", "")),
+                "filename": filename,
+                "title": doc.get("title") or os.path.splitext(filename)[0],
+                "description": doc.get("description") or "Imported picture"
+            })
+
     return images
 
 
@@ -230,7 +278,7 @@ body{margin:0;font-family:Arial,sans-serif;background:#10131a;color:#fff;padding
 .wrap{max-width:1100px;margin:auto}
 .card{background:#191e28;border:1px solid #303746;border-radius:18px;padding:24px;margin:0 0 22px;box-shadow:0 12px 35px rgba(0,0,0,.18)}
 h1,h2{margin-top:0}
-input,textarea{width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit}
+input,textarea,select{width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit}
 textarea{min-height:130px;resize:vertical}
 button{border:0;border-radius:11px;padding:12px 17px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;cursor:pointer;font-weight:800}
 a{color:#b894ff}
@@ -309,7 +357,7 @@ a{color:#b894ff}
 
 <div class="card">
 <h2>📰 Add News / Announcement</h2>
-<form method="POST" action="{{ url_for('add_news_item') }}">
+<form method="POST" action="{{ url_for('add_news_item') }}" enctype="multipart/form-data">
 <label>Type</label>
 <select name="kind" required style="width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit;">
 <option value="Announcement">Announcement</option>
@@ -319,6 +367,9 @@ a{color:#b894ff}
 <input type="text" name="title" maxlength="160" required placeholder="News or announcement title">
 <label>Content</label>
 <textarea name="content" maxlength="10000" required placeholder="Write the news or announcement..."></textarea>
+<label>Pictures (optional)</label>
+<input type="file" name="news_images" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+<small class="meta">You can attach one or more pictures to this news/announcement.</small>
 <button type="submit">📢 Publish</button>
 </form>
 </div>
@@ -331,6 +382,13 @@ a{color:#b894ff}
         <strong>{{ item["kind"] }} — {{ item["title"] }}</strong><br>
         <span class="meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</span>
         <p style="white-space:pre-wrap;">{{ item["content"] }}</p>
+        {% if item["images"] %}
+        <div class="staff-news-images">
+            {% for image in item["images"] %}
+            <img src="{{ url_for('news_image', filename=image) }}" alt="{{ item['title'] }}" loading="lazy">
+            {% endfor %}
+        </div>
+        {% endif %}
         <form method="POST" action="{{ url_for('delete_news_item', news_id=item['id']) }}" onsubmit="return confirm('Delete this news or announcement permanently?');">
             <button type="submit" style="background:#b42318;color:#fff;padding:9px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:800;">🗑️ Delete</button>
         </form>
@@ -348,6 +406,30 @@ a{color:#b894ff}
 {% endfor %}
 </div>
 </div>
+<script>
+(function () {
+    const timeoutMs = 5 * 60 * 1000;
+    let lastActivity = Date.now();
+
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(function (eventName) {
+        window.addEventListener(eventName, function () {
+            lastActivity = Date.now();
+        }, { passive: true });
+    });
+
+    setInterval(function () {
+        if (Date.now() - lastActivity >= timeoutMs) {
+            window.location.href = "{{ url_for('logout') }}";
+        } else {
+            fetch("{{ url_for('staff_heartbeat') }}", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {"X-Requested-With": "XMLHttpRequest"}
+            }).catch(function () {});
+        }
+    }, 60 * 1000);
+})();
+</script>
 </body>
 </html>
 """
@@ -1262,6 +1344,15 @@ body.dark .title {
 .news-card h3{color:var(--text);margin:8px 0}
 .news-card p{color:var(--muted);white-space:pre-wrap}
 .news-meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+
+.news-images,.staff-news-images{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0}
+.news-images img,.staff-news-images img{width:100%;height:220px;object-fit:cover;border-radius:14px;border:1px solid var(--border);background:var(--purple-soft)}
+.staff-news-images img{height:180px}
+.gallery-meta-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 15px}
+.gallery-meta-row input,.gallery-meta-row textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--background);color:var(--text);font:inherit}
+.gallery-meta-row textarea{min-height:80px;resize:vertical}
+.gallery-file-name{font-weight:800;color:var(--purple);margin-top:12px}
+@media(max-width:650px){.gallery-meta-row{grid-template-columns:1fr}.news-images img,.staff-news-images img{height:200px}}
 
 
 /* Final requested visual refinements */
@@ -2493,18 +2584,22 @@ GALLERY
 <div class="auth-box gallery-upload">
     <h3>📸 Import Pictures</h3>
     <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from your computer and add them to the JHR Gallery.</p>
-    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data">
-        <input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
+        <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+        <div id="galleryMetadata"></div>
         <button class="upload-submit" type="submit">⬆️ Import Pictures</button>
     </form>
-    <small>Supported: JPG, JPEG, PNG, WEBP, GIF</small>
+    <small>Supported: JPG, JPEG, PNG, WEBP, GIF. Each selected photo can have its own title and description.</small>
 </div>
 {% endif %}
 
 {% for image in uploaded_images %}
 <div class="gallery-card">
-    <img src="{{ url_for('uploaded_gallery_image', filename=image) }}" alt="JHR uploaded gallery image" loading="lazy" decoding="async">
-    <div class="gallery-caption"><h3>📷 JHR Gallery</h3><p>Imported picture</p></div>
+    <img src="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" alt="{{ image['title'] }}" loading="lazy" decoding="async">
+    <div class="gallery-caption">
+        <h3>📷 {{ image["title"] }}</h3>
+        <p>{{ image["description"] }}</p>
+    </div>
 </div>
 {% endfor %}
 
@@ -2659,6 +2754,13 @@ GALLERY
         <div class="news-kind">{{ item["kind"] }}</div>
         <h3>{{ item["title"] }}</h3>
         <div class="news-meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</div>
+        {% if item["images"] %}
+        <div class="news-images">
+            {% for image in item["images"] %}
+            <img src="{{ url_for('news_image', filename=image) }}" alt="{{ item['title'] }}" loading="lazy" decoding="async">
+            {% endfor %}
+        </div>
+        {% endif %}
         <p>{{ item["content"] }}</p>
     </article>
     {% endfor %}
@@ -3867,6 +3969,100 @@ if (
 
 
 /* =====================================================
+   STAFF SESSION AUTO-LOGOUT
+===================================================== */
+
+{% if session.get("staff_id") %}
+(function () {
+    const timeoutMs = 5 * 60 * 1000;
+    let lastActivity = Date.now();
+    let heartbeatTimer = null;
+
+    function markActivity() {
+        lastActivity = Date.now();
+    }
+
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(function (eventName) {
+        window.addEventListener(eventName, markActivity, { passive: true });
+    });
+
+    function heartbeat() {
+        fetch("{{ url_for('staff_heartbeat') }}", {
+            method: "POST",
+            headers: {"X-Requested-With": "XMLHttpRequest"},
+            credentials: "same-origin"
+        }).then(function (response) {
+            if (response.status === 401 || response.redirected) {
+                window.location.href = "{{ url_for('login') }}";
+            }
+        }).catch(function () {});
+    }
+
+    heartbeatTimer = setInterval(function () {
+        if (Date.now() - lastActivity >= timeoutMs) {
+            clearInterval(heartbeatTimer);
+            window.location.href = "{{ url_for('logout') }}";
+            return;
+        }
+        heartbeat();
+    }, 60 * 1000);
+
+    window.addEventListener("beforeunload", function () {
+        clearInterval(heartbeatTimer);
+    });
+})();
+{% endif %}
+
+
+/* =====================================================
+   GALLERY METADATA FIELDS
+===================================================== */
+
+(function () {
+    const fileInput = document.getElementById("galleryFiles");
+    const metadata = document.getElementById("galleryMetadata");
+
+    if (!fileInput || !metadata) {
+        return;
+    }
+
+    fileInput.addEventListener("change", function () {
+        metadata.innerHTML = "";
+
+        Array.from(fileInput.files).forEach(function (file, index) {
+            const row = document.createElement("div");
+            row.className = "gallery-meta-row";
+
+            row.innerHTML =
+                '<div>' +
+                    '<div class="gallery-file-name">📷 ' + escapeHtml(file.name) + '</div>' +
+                    '<label>Photo title</label>' +
+                    '<input type="text" name="title_' + index + '" maxlength="160" placeholder="Title for this photo">' +
+                '</div>' +
+                '<div>' +
+                    '<label>Photo description</label>' +
+                    '<textarea name="description_' + index + '" maxlength="2000" placeholder="Describe this photo..."></textarea>' +
+                '</div>';
+
+            metadata.appendChild(row);
+        });
+    });
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (character) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            }[character];
+        });
+    }
+})();
+
+
+/* =====================================================
    IMAGE ERROR HANDLER
 ===================================================== */
 
@@ -3991,8 +4187,34 @@ def staff_required(view):
     def wrapped(*args, **kwargs):
         if not session.get("staff_id"):
             return redirect(url_for("login"))
+
+        last_activity = session.get("staff_last_activity")
+        if not last_activity or time.time() - float(last_activity) > STAFF_SESSION_TIMEOUT.total_seconds():
+            session.clear()
+            flash("Your staff session expired after 5 minutes of inactivity. Please log in again.")
+            return redirect(url_for("login"))
+
+        session.permanent = True
+        session["staff_last_activity"] = time.time()
         return view(*args, **kwargs)
     return wrapped
+
+
+@app.before_request
+def expire_staff_session():
+    """Expire staff sessions even when the requested route is public."""
+    if not session.get("staff_id"):
+        return
+
+    last_activity = session.get("staff_last_activity")
+    if not last_activity:
+        session.clear()
+        return
+
+    if time.time() - float(last_activity) > STAFF_SESSION_TIMEOUT.total_seconds():
+        session.clear()
+        if request.endpoint not in {"login", "logout"}:
+            flash("Your staff session expired after 5 minutes of inactivity. Please log in again.")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -4005,8 +4227,10 @@ def login():
 
         if staff and check_password_hash(staff.get("password", ""), password):
             session.clear()
+            session.permanent = True
             session["staff_id"] = str(staff["_id"])
             session["staff_username"] = staff.get("username", username)
+            session["staff_last_activity"] = time.time()
             flash("Welcome, " + staff.get("username", username) + "!")
             return redirect(url_for("home"))
 
@@ -4027,6 +4251,12 @@ def logout():
     return redirect(url_for("home"))
 
 
+@app.route("/staff/heartbeat", methods=["POST"])
+@staff_required
+def staff_heartbeat():
+    return ("", 204)
+
+
 # =========================================================
 # GALLERY UPLOAD
 # =========================================================
@@ -4037,7 +4267,7 @@ def upload_gallery():
     files = request.files.getlist("images")
     added = 0
 
-    for image in files:
+    for index, image in enumerate(files):
         if not image or not image.filename or not allowed_file(image.filename):
             continue
 
@@ -4053,11 +4283,49 @@ def upload_gallery():
             candidate = f"{base}_{counter}{ext}"
             counter += 1
 
+        title = request.form.get(f"title_{index}", "").strip()
+        description = request.form.get(f"description_{index}", "").strip()
+
+        if len(title) > 160:
+            title = title[:160]
+        if len(description) > 2000:
+            description = description[:2000]
+
+        if not title:
+            title = os.path.splitext(filename)[0]
+        if not description:
+            description = "Imported picture"
+
         image.save(os.path.join(GALLERY_FOLDER, candidate))
+
+        gallery_collection.insert_one({
+            "filename": candidate,
+            "title": title,
+            "description": description,
+            "created_at": now_string(),
+            "author_id": session.get("staff_id")
+        })
         added += 1
 
     flash(f"{added} picture(s) imported into the gallery.")
     return redirect(url_for("home") + "#gallery")
+
+
+# =========================================================
+# NEWS / ANNOUNCEMENT IMAGE UPLOAD
+# =========================================================
+
+@app.route("/news-image/<path:filename>")
+def news_image(filename):
+    filename = os.path.basename(filename)
+    if not allowed_file(filename):
+        abort(404)
+    return send_from_directory(NEWS_FOLDER, filename)
+
+
+# =========================================================
+# FREE CODING CLASS MESSAGES
+# =========================================================
 
 
 # =========================================================
@@ -4204,12 +4472,15 @@ def add_news_item():
     kind = request.form.get("kind", "Announcement").strip()
     title = request.form.get("title", "").strip()
     content = request.form.get("content", "").strip()
+    uploaded_files = request.files.getlist("news_images")
 
     if kind not in {"News", "Announcement"}:
         kind = "Announcement"
+
     if not title or not content:
         flash("Please enter a title and message.")
         return redirect(url_for("staff_dashboard"))
+
     if len(title) > 160 or len(content) > 10000:
         flash("The news title or content is too long.")
         return redirect(url_for("staff_dashboard"))
@@ -4221,10 +4492,32 @@ def add_news_item():
         session.clear()
         return redirect(url_for("login"))
 
+    image_names = []
+
+    for image in uploaded_files:
+        if not image or not image.filename or not allowed_file(image.filename):
+            continue
+
+        filename = secure_filename(image.filename)
+        if not filename:
+            continue
+
+        base, ext = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+
+        while os.path.exists(os.path.join(NEWS_FOLDER, candidate)):
+            candidate = f"{base}_{counter}{ext}"
+            counter += 1
+
+        image.save(os.path.join(NEWS_FOLDER, candidate))
+        image_names.append(candidate)
+
     news_collection.insert_one({
         "kind": kind,
         "title": title,
         "content": content,
+        "images": image_names,
         "created_at": now_string(),
         "author_id": str(author_id)
     })
@@ -4237,14 +4530,30 @@ def add_news_item():
 @staff_required
 def delete_news_item(news_id):
     try:
-        result = news_collection.delete_one({"_id": ObjectId(news_id)})
+        object_id = ObjectId(news_id)
+        document = news_collection.find_one({"_id": object_id})
     except (InvalidId, TypeError):
-        result = None
+        document = None
 
-    if result and result.deleted_count:
+    if not document:
+        flash("News/announcement not found.")
+        return redirect(url_for("staff_dashboard"))
+
+    for filename in document.get("images", []):
+        safe_name = os.path.basename(filename)
+        filepath = os.path.join(NEWS_FOLDER, safe_name)
+        if os.path.isfile(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+
+    result = news_collection.delete_one({"_id": document["_id"]})
+
+    if result.deleted_count:
         flash("News/announcement deleted.")
     else:
-        flash("News/announcement not found.")
+        flash("News/announcement could not be deleted.")
 
     return redirect(url_for("staff_dashboard"))
 
