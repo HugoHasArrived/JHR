@@ -4523,50 +4523,88 @@ def staff_heartbeat():
 @app.route("/gallery/upload", methods=["POST"])
 @staff_required
 def upload_gallery():
+    """Upload gallery images and save their metadata safely."""
     files = request.files.getlist("images")
+
+    if not files:
+        flash("No picture was selected.")
+        return redirect(url_for("home") + "#gallery")
+
+    # Make sure the upload directory exists on every request. This is
+    # especially useful on fresh Render instances.
+    os.makedirs(GALLERY_FOLDER, exist_ok=True)
+
     added = 0
+    skipped = []
 
     for index, image in enumerate(files):
-        if not image or not image.filename or not allowed_file(image.filename):
+        original_name = (image.filename or "").strip()
+
+        if not original_name:
+            skipped.append("an unnamed file")
             continue
 
-        filename = secure_filename(image.filename)
+        if not allowed_file(original_name):
+            skipped.append(original_name)
+            continue
+
+        filename = secure_filename(original_name)
         if not filename:
+            skipped.append(original_name)
             continue
 
         base, ext = os.path.splitext(filename)
-        candidate = filename
-        counter = 1
+        ext = ext.lower()
 
-        while os.path.exists(os.path.join(GALLERY_FOLDER, candidate)):
-            candidate = f"{base}_{counter}{ext}"
-            counter += 1
+        # Always create a unique server-side filename. This prevents an
+        # existing upload from overwriting another picture.
+        candidate = f"{base}_{uuid4().hex[:10]}{ext}"
+        filepath = os.path.join(GALLERY_FOLDER, candidate)
 
-        title = request.form.get(f"title_{index}", "").strip()
-        description = request.form.get(f"description_{index}", "").strip()
-
-        if len(title) > 160:
-            title = title[:160]
-        if len(description) > 2000:
-            description = description[:2000]
+        title = request.form.get(f"title_{index}", "").strip()[:160]
+        description = request.form.get(f"description_{index}", "").strip()[:2000]
 
         if not title:
-            title = os.path.splitext(filename)[0]
+            title = os.path.splitext(original_name)[0][:160]
         if not description:
             description = "Imported picture"
 
-        image.save(os.path.join(GALLERY_FOLDER, candidate))
+        try:
+            # Reset the stream in case the request middleware has inspected it.
+            image.stream.seek(0)
+            image.save(filepath)
 
-        gallery_collection.insert_one({
-            "filename": candidate,
-            "title": title,
-            "description": description,
-            "created_at": now_string(),
-            "author_id": session.get("staff_id")
-        })
-        added += 1
+            if not os.path.isfile(filepath) or os.path.getsize(filepath) == 0:
+                raise OSError("The uploaded file was not saved correctly.")
 
-    flash(f"{added} picture(s) imported into the gallery.")
+            gallery_collection.insert_one({
+                "filename": candidate,
+                "original_filename": original_name,
+                "title": title,
+                "description": description,
+                "created_at": now_string(),
+                "author_id": session.get("staff_id")
+            })
+            added += 1
+
+        except Exception as exc:
+            # Remove a partially saved file if MongoDB or the filesystem fails.
+            try:
+                if os.path.isfile(filepath):
+                    os.remove(filepath)
+            except OSError:
+                pass
+            skipped.append(original_name)
+            app.logger.exception("Gallery upload failed for %s: %s", original_name, exc)
+
+    if added:
+        message = f"{added} picture(s) imported into the gallery successfully."
+        if skipped:
+            message += f" {len(skipped)} file(s) were skipped."
+        flash(message)
+    else:
+        flash("No pictures were uploaded. Please select JPG, JPEG, PNG, WEBP, or GIF files and try again.")
+
     return redirect(url_for("home") + "#gallery")
 
 
