@@ -2,6 +2,7 @@ from flask import Flask, render_template_string, send_from_directory, send_file,
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
+import mimetypes
 from functools import wraps
 from datetime import datetime, timedelta
 import time
@@ -75,7 +76,7 @@ try:
     staff_accounts_collection.create_index("username", unique=True)
     gallery_collection.create_index("filename", unique=True)
     viewers_collection.create_index("viewer_id", unique=True)
-    viewers_collection.create_index("last_seen", -1)
+    viewers_collection.create_index([("last_seen", -1)])
 
 except PyMongoError as exc:
     raise RuntimeError(
@@ -208,6 +209,29 @@ def init_mongodb():
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def uploaded_image_response(folder, filename):
+    """Safely serve an uploaded image with the correct MIME type."""
+    safe_name = os.path.basename(filename or "")
+    if not safe_name or not allowed_file(safe_name):
+        abort(404)
+
+    root = os.path.abspath(folder)
+    filepath = os.path.abspath(os.path.join(root, safe_name))
+
+    if not filepath.startswith(root + os.sep) or not os.path.isfile(filepath):
+        abort(404)
+
+    mime_type, _ = mimetypes.guess_type(filepath)
+    if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+        abort(404)
+
+    response = send_file(filepath, mimetype=mime_type, conditional=True, max_age=0)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def normalize_staff(doc):
@@ -4484,27 +4508,7 @@ def upload_gallery():
 
 @app.route("/news-image/<path:filename>")
 def news_image(filename):
-    # Serve the exact uploaded file instead of relying on Flask's static
-    # file handling. This also works when the app is started from a
-    # different working directory.
-    filename = os.path.basename(filename)
-    if not allowed_file(filename):
-        abort(404)
-
-    filepath = os.path.abspath(os.path.join(NEWS_FOLDER, filename))
-    news_root = os.path.abspath(NEWS_FOLDER)
-    if not filepath.startswith(news_root + os.sep) or not os.path.isfile(filepath):
-        abort(404)
-
-    return send_file(
-        filepath,
-        mimetype=request.accept_mimetypes.best_match([
-            "image/jpeg", "image/png", "image/webp", "image/gif"
-        ]) or None,
-        conditional=True,
-        max_age=0
-    )
-
+    return uploaded_image_response(NEWS_FOLDER, filename)
 
 # =========================================================
 # FREE CODING CLASS MESSAGES
@@ -4747,26 +4751,7 @@ def delete_news_item(news_id):
 
 @app.route("/gallery-image/<path:filename>")
 def uploaded_gallery_image(filename):
-    # Serve uploaded gallery files directly from their absolute path.
-    # This avoids broken image URLs caused by relative/static-path issues.
-    filename = os.path.basename(filename)
-    if not allowed_file(filename):
-        abort(404)
-
-    filepath = os.path.abspath(os.path.join(GALLERY_FOLDER, filename))
-    gallery_root = os.path.abspath(GALLERY_FOLDER)
-    if not filepath.startswith(gallery_root + os.sep) or not os.path.isfile(filepath):
-        abort(404)
-
-    return send_file(
-        filepath,
-        mimetype=request.accept_mimetypes.best_match([
-            "image/jpeg", "image/png", "image/webp", "image/gif"
-        ]) or None,
-        conditional=True,
-        max_age=0
-    )
-
+    return uploaded_image_response(GALLERY_FOLDER, filename)
 
 # =========================================================
 # HEALTH
