@@ -129,6 +129,14 @@ def parse_user_agent(user_agent):
     }
 
 
+def get_client_ip():
+    """Get the visitor IP, including the forwarded IP used by Render/proxies."""
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "Unknown"
+
+
 def track_viewer(page="/"):
     """Track one browser visitor while keeping a stable anonymous viewer ID in a cookie."""
     viewer_id = request.cookies.get("jhr_viewer_id")
@@ -141,6 +149,7 @@ def track_viewer(page="/"):
     now = now_string()
     ua = request.headers.get("User-Agent", "")
     device_info = parse_user_agent(ua)
+    client_ip = get_client_ip()
 
     existing = viewers_collection.find_one({"viewer_id": viewer_id})
     if existing:
@@ -150,6 +159,7 @@ def track_viewer(page="/"):
                 "$set": {
                     "last_seen": now,
                     "last_page": page,
+                    "last_ip": client_ip,
                     **device_info,
                 },
                 "$inc": {"total_views": 1},
@@ -161,6 +171,8 @@ def track_viewer(page="/"):
             "first_seen": now,
             "last_seen": now,
             "last_page": page,
+            "first_ip": client_ip,
+            "last_ip": client_ip,
             "total_views": 1,
             **device_info,
         })
@@ -181,6 +193,8 @@ def detailed_viewers():
             "last_seen": doc.get("last_seen", ""),
             "total_views": int(doc.get("total_views", 0)),
             "last_page": doc.get("last_page", "/"),
+            "first_ip": doc.get("first_ip", doc.get("last_ip", "Unknown")),
+            "last_ip": doc.get("last_ip", "Unknown"),
             "device": doc.get("device", "Unknown"),
             "browser": doc.get("browser", "Unknown"),
             "operating_system": doc.get("operating_system", "Unknown"),
@@ -418,8 +432,8 @@ a{color:#b894ff}
 .message:first-child{border-top:0}
 .meta{color:#aab4c2;font-size:14px}
 .notice{padding:12px;border-radius:10px;background:#241d3c;margin-bottom:8px}
-.viewer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.viewer-summary>div{background:#0f131a;border:1px solid #303746;border-radius:14px;padding:16px}.viewer-summary strong{display:block;font-size:24px;color:#fff}.viewer-summary span{display:block;margin-top:5px;color:#aab4c2;font-size:13px}.viewer-table-wrap{overflow:auto;border:1px solid #303746;border-radius:14px}.viewer-table{width:100%;min-width:1000px;border-collapse:collapse}.viewer-table th,.viewer-table td{padding:12px 13px;text-align:left;border-bottom:1px solid #303746;vertical-align:top}.viewer-table th{background:#0f131a;color:#d8c9ff;font-size:13px;position:sticky;top:0}.viewer-table td{font-size:13px}.viewer-table tr:last-child td{border-bottom:0}.viewer-table code{color:#cfc4ff}.viewer-table tbody tr:hover{background:#202631}
-@media(max-width:800px){.viewer-summary{grid-template-columns:1fr}.viewer-table{min-width:900px}}
+.staff-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}.staff-tab{background:#0f131a;border:1px solid #303746;color:#cbd5e1;padding:11px 15px;border-radius:10px;cursor:pointer;font-weight:800}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;border-color:transparent}.staff-panel{display:none}.staff-panel.active{display:block}.viewer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.viewer-summary>div{background:#0f131a;border:1px solid #303746;border-radius:14px;padding:16px}.viewer-summary strong{display:block;font-size:24px;color:#fff}.viewer-summary span{display:block;margin-top:5px;color:#aab4c2;font-size:13px}.viewer-table-wrap{overflow:auto;border:1px solid #303746;border-radius:14px}.viewer-table{width:100%;min-width:1350px;border-collapse:collapse}.viewer-table th,.viewer-table td{padding:12px 13px;text-align:left;border-bottom:1px solid #303746;vertical-align:top}.viewer-table th{background:#0f131a;color:#d8c9ff;font-size:13px;position:sticky;top:0}.viewer-table td{font-size:13px}.viewer-table tr:last-child td{border-bottom:0}.viewer-table code{color:#cfc4ff}.viewer-table tbody tr:hover{background:#202631}.ip-cell{font-family:monospace;color:#e9d5ff;font-weight:700}.viewer-detail{font-size:12px;color:#aab4c2;margin-top:4px}
+@media(max-width:800px){.viewer-summary{grid-template-columns:1fr}.viewer-table{min-width:1350px}}
 
 .who-are-we-cards{display:flex;justify-content:center;align-items:center}
 .who-we-are-box{width:min(950px,100%);margin:0 auto;text-align:center}
@@ -434,13 +448,21 @@ a{color:#b894ff}
 <h1>👨‍💼 JHR Staff Dashboard</h1>
 <p>You are logged in as <strong>{{ staff_username }}</strong>.</p>
 
+<div class="staff-tabs" role="tablist" aria-label="Staff dashboard sections">
+    <button class="staff-tab active" type="button" data-panel="messages">📨 Messages</button>
+    <button class="staff-tab" type="button" data-panel="news">📰 News & Announcements</button>
+    <button class="staff-tab" type="button" data-panel="viewers">👁️ Detailed Viewers</button>
+    <button class="staff-tab" type="button" data-panel="accounts">👤 Staff Accounts</button>
+    <button class="staff-tab" type="button" data-panel="password">🔑 Change Password</button>
+</div>
+
 {% with notices = get_flashed_messages() %}
 {% for notice in notices %}
 <div class="notice">{{ notice }}</div>
 {% endfor %}
 {% endwith %}
 
-<div class="card">
+<div class="card staff-panel active" id="panel-messages">
 <h2>📨 Free Coding Class Messages</h2>
 {% if messages %}
     {% for msg in messages %}
@@ -463,7 +485,7 @@ a{color:#b894ff}
 {% endif %}
 </div>
 
-<div class="card">
+<div class="card staff-panel" id="panel-password">
 <h2>🔑 Change My Staff Password</h2>
 <form method="POST" action="{{ url_for('change_staff_password') }}">
 <label>Current password</label>
@@ -476,7 +498,7 @@ a{color:#b894ff}
 </form>
 </div>
 
-<div class="card">
+<div class="card staff-panel" id="panel-staff">
 <h2>👥 Add New Staff Account</h2>
 <form method="POST" action="{{ url_for('add_staff_account') }}">
 <label>Username</label>
@@ -489,7 +511,7 @@ a{color:#b894ff}
 </form>
 </div>
 
-<div class="card">
+<div class="card staff-panel" id="panel-news">
 <h2>📰 Add News / Announcement</h2>
 <form method="POST" action="{{ url_for('add_news_item') }}" enctype="multipart/form-data">
 <label>Type</label>
@@ -508,7 +530,7 @@ a{color:#b894ff}
 </form>
 </div>
 
-<div class="card">
+<div class="card staff-panel" id="panel-published-news">
 <h2>🗞️ Published News & Announcements</h2>
 {% if news_items %}
     {% for item in news_items %}
@@ -533,9 +555,9 @@ a{color:#b894ff}
 {% endif %}
 </div>
 
-<div class="card" id="viewers">
+<div class="card staff-panel" id="panel-viewers">
 <h2>👁️ Detailed Viewers</h2>
-<p class="meta">Anonymous browser visitor activity. A viewer keeps the same Viewer ID while using the same browser.</p>
+<p class="meta">Detailed visitor activity for staff. Each browser receives an anonymous Viewer ID. IP address, device, browser, operating system, visit times, page activity, and view count are shown here.</p>
 
 <div class="viewer-summary">
     <div><strong>{{ viewer_total }}</strong><span>Unique Viewers</span></div>
@@ -553,6 +575,7 @@ a{color:#b894ff}
     <th>Last Activity</th>
     <th>Views</th>
     <th>Last Page</th>
+    <th>IP Address</th>
     <th>Device</th>
     <th>Browser</th>
     <th>Operating System</th>
@@ -566,6 +589,7 @@ a{color:#b894ff}
     <td>{{ viewer['last_seen'] }}</td>
     <td><strong>{{ viewer['total_views'] }}</strong></td>
     <td><code>{{ viewer['last_page'] }}</code></td>
+    <td class="ip-cell">{{ viewer['last_ip'] }}<div class="viewer-detail">First: {{ viewer['first_ip'] }}</div></td>
     <td>{{ viewer['device'] }}</td>
     <td>{{ viewer['browser'] }}</td>
     <td>{{ viewer['operating_system'] }}</td>
@@ -579,13 +603,29 @@ a{color:#b894ff}
 {% endif %}
 </div>
 
-<div class="card">
+<div class="card staff-panel" id="panel-accounts">
 <h2>👤 Current Staff Accounts</h2>
 {% for staff in staff_accounts %}
 <p><strong>{{ staff["username"] }}</strong><br><span class="meta">Created {{ staff["created_at"] }}</span></p>
 {% endfor %}
 </div>
 </div>
+<script>
+(function () {
+    const tabs = document.querySelectorAll('.staff-tab');
+    const panels = document.querySelectorAll('.staff-panel');
+    function activate(name) {
+        tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.panel === name));
+        panels.forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + name));
+        history.replaceState(null, '', '#' + name);
+    }
+    tabs.forEach(tab => tab.addEventListener('click', () => activate(tab.dataset.panel)));
+    const initial = location.hash.replace('#', '');
+    if (['messages','news','viewers','accounts','password'].includes(initial)) {
+        activate(initial);
+    }
+})();
+</script>
 <script>
 (function () {
     const timeoutMs = 5 * 60 * 1000;
