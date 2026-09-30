@@ -1689,6 +1689,31 @@ body.dark .title {
         auto;
 }
 
+.gallery-image-link {
+    display: block;
+    position: relative;
+    background: var(--purple-soft);
+    text-decoration: none;
+}
+
+.gallery-image-link img {
+    transition: transform .2s ease, opacity .2s ease;
+}
+
+.gallery-image-link:hover img {
+    transform: scale(1.02);
+}
+
+.gallery-image-error {
+    display: none;
+    min-height: 300px;
+    padding: 30px;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-align: center;
+}
+
 
 .gallery-caption {
 
@@ -2813,17 +2838,20 @@ GALLERY
 </div>
 {% endif %}
 
+<div class="gallery-grid">
+
 {% for image in uploaded_images %}
-<div class="gallery-card">
-    <img src="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" alt="{{ image['title'] }}" loading="lazy" decoding="async">
+<div class="gallery-card uploaded-gallery-card">
+    <a href="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" target="_blank" rel="noopener" class="gallery-image-link">
+        <img src="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" alt="{{ image['title']|e }}" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <span class="gallery-image-error">Photo could not be loaded.</span>
+    </a>
     <div class="gallery-caption">
         <h3>📷 {{ image["title"] }}</h3>
         <p>{{ image["description"] }}</p>
     </div>
 </div>
 {% endfor %}
-
-<div class="gallery-grid">
 
 
 <!-- =====================================================
