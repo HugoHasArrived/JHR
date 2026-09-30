@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, send_from_directory, abort, request, redirect, url_for, session, flash
+from flask import Flask, render_template_string, send_from_directory, send_file, abort, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -9,6 +9,8 @@ import time
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from bson import ObjectId
+from uuid import uuid4
+import re
 from bson.errors import InvalidId
 
 app = Flask(
@@ -48,8 +50,8 @@ MONGO_DB_NAME = os.environ.get(
     "jhr_database"
 )
 
-GALLERY_FOLDER = os.path.join(app.static_folder, "gallery")
-NEWS_FOLDER = os.path.join(app.static_folder, "news_uploads")
+GALLERY_FOLDER = os.path.abspath(os.path.join(app.static_folder, "gallery"))
+NEWS_FOLDER = os.path.abspath(os.path.join(app.static_folder, "news_uploads"))
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 os.makedirs(GALLERY_FOLDER, exist_ok=True)
 os.makedirs(NEWS_FOLDER, exist_ok=True)
@@ -68,15 +70,121 @@ try:
     class_messages_collection = mongo_db["class_messages"]
     news_collection = mongo_db["news_items"]
     gallery_collection = mongo_db["gallery_items"]
+    viewers_collection = mongo_db["viewers"]
 
     staff_accounts_collection.create_index("username", unique=True)
     gallery_collection.create_index("filename", unique=True)
+    viewers_collection.create_index("viewer_id", unique=True)
+    viewers_collection.create_index("last_seen", -1)
 
 except PyMongoError as exc:
     raise RuntimeError(
         "Could not connect to MongoDB. Set MONGO_URI to your MongoDB Atlas "
         "connection string or make sure local MongoDB is running."
     ) from exc
+
+
+def parse_user_agent(user_agent):
+    """Return a simple, readable browser/device/OS summary without extra dependencies."""
+    ua = user_agent or ""
+
+    if re.search(r"Edg/", ua):
+        browser = "Microsoft Edge"
+    elif re.search(r"OPR/|Opera", ua):
+        browser = "Opera"
+    elif re.search(r"Chrome/", ua) and not re.search(r"Edg/", ua):
+        browser = "Google Chrome"
+    elif re.search(r"Firefox/", ua):
+        browser = "Mozilla Firefox"
+    elif re.search(r"Safari/", ua) and not re.search(r"Chrome/", ua):
+        browser = "Safari"
+    else:
+        browser = "Other / Unknown browser"
+
+    if re.search(r"Windows NT", ua):
+        operating_system = "Windows"
+    elif re.search(r"Android", ua):
+        operating_system = "Android"
+    elif re.search(r"iPhone|iPad|iPod", ua):
+        operating_system = "iOS / iPadOS"
+    elif re.search(r"Mac OS X", ua):
+        operating_system = "macOS"
+    elif re.search(r"Linux", ua):
+        operating_system = "Linux"
+    else:
+        operating_system = "Other / Unknown OS"
+
+    if re.search(r"Mobile|Android|iPhone|iPod", ua):
+        device = "Mobile"
+    elif re.search(r"iPad|Tablet", ua):
+        device = "Tablet"
+    else:
+        device = "Desktop / Laptop"
+
+    return {
+        "browser": browser,
+        "operating_system": operating_system,
+        "device": device,
+    }
+
+
+def track_viewer(page="/"):
+    """Track one browser visitor while keeping a stable anonymous viewer ID in a cookie."""
+    viewer_id = request.cookies.get("jhr_viewer_id")
+    new_viewer = False
+
+    if not viewer_id or not re.fullmatch(r"[a-f0-9]{32}", viewer_id):
+        viewer_id = uuid4().hex
+        new_viewer = True
+
+    now = now_string()
+    ua = request.headers.get("User-Agent", "")
+    device_info = parse_user_agent(ua)
+
+    existing = viewers_collection.find_one({"viewer_id": viewer_id})
+    if existing:
+        viewers_collection.update_one(
+            {"viewer_id": viewer_id},
+            {
+                "$set": {
+                    "last_seen": now,
+                    "last_page": page,
+                    **device_info,
+                },
+                "$inc": {"total_views": 1},
+            },
+        )
+    else:
+        viewers_collection.insert_one({
+            "viewer_id": viewer_id,
+            "first_seen": now,
+            "last_seen": now,
+            "last_page": page,
+            "total_views": 1,
+            **device_info,
+        })
+        new_viewer = True
+
+    return viewer_id, new_viewer
+
+
+def detailed_viewers():
+    """Return organized viewer records for the staff viewer area."""
+    records = []
+    for doc in viewers_collection.find().sort("last_seen", -1):
+        viewer_id = doc.get("viewer_id", "")
+        records.append({
+            "id": viewer_id[-8:].upper() if viewer_id else "UNKNOWN",
+            "full_id": viewer_id,
+            "first_seen": doc.get("first_seen", ""),
+            "last_seen": doc.get("last_seen", ""),
+            "total_views": int(doc.get("total_views", 0)),
+            "last_page": doc.get("last_page", "/"),
+            "device": doc.get("device", "Unknown"),
+            "browser": doc.get("browser", "Unknown"),
+            "operating_system": doc.get("operating_system", "Unknown"),
+        })
+    return records
 
 
 def now_string():
@@ -286,6 +394,8 @@ a{color:#b894ff}
 .message:first-child{border-top:0}
 .meta{color:#aab4c2;font-size:14px}
 .notice{padding:12px;border-radius:10px;background:#241d3c;margin-bottom:8px}
+.viewer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.viewer-summary>div{background:#0f131a;border:1px solid #303746;border-radius:14px;padding:16px}.viewer-summary strong{display:block;font-size:24px;color:#fff}.viewer-summary span{display:block;margin-top:5px;color:#aab4c2;font-size:13px}.viewer-table-wrap{overflow:auto;border:1px solid #303746;border-radius:14px}.viewer-table{width:100%;min-width:1000px;border-collapse:collapse}.viewer-table th,.viewer-table td{padding:12px 13px;text-align:left;border-bottom:1px solid #303746;vertical-align:top}.viewer-table th{background:#0f131a;color:#d8c9ff;font-size:13px;position:sticky;top:0}.viewer-table td{font-size:13px}.viewer-table tr:last-child td{border-bottom:0}.viewer-table code{color:#cfc4ff}.viewer-table tbody tr:hover{background:#202631}
+@media(max-width:800px){.viewer-summary{grid-template-columns:1fr}.viewer-table{min-width:900px}}
 
 .who-are-we-cards{display:flex;justify-content:center;align-items:center}
 .who-we-are-box{width:min(950px,100%);margin:0 auto;text-align:center}
@@ -396,6 +506,52 @@ a{color:#b894ff}
     {% endfor %}
 {% else %}
     <p>No news or announcements published yet.</p>
+{% endif %}
+</div>
+
+<div class="card" id="viewers">
+<h2>👁️ Detailed Viewers</h2>
+<p class="meta">Anonymous browser visitor activity. A viewer keeps the same Viewer ID while using the same browser.</p>
+
+<div class="viewer-summary">
+    <div><strong>{{ viewer_total }}</strong><span>Unique Viewers</span></div>
+    <div><strong>{{ viewer_views }}</strong><span>Total Page Views</span></div>
+    <div><strong>{{ viewers[0]['last_seen'] if viewers else '—' }}</strong><span>Latest Activity</span></div>
+</div>
+
+{% if viewers %}
+<div class="viewer-table-wrap">
+<table class="viewer-table">
+<thead>
+<tr>
+    <th>Viewer</th>
+    <th>First Visit</th>
+    <th>Last Activity</th>
+    <th>Views</th>
+    <th>Last Page</th>
+    <th>Device</th>
+    <th>Browser</th>
+    <th>Operating System</th>
+</tr>
+</thead>
+<tbody>
+{% for viewer in viewers %}
+<tr>
+    <td><strong>Viewer #{{ viewer['id'] }}</strong></td>
+    <td>{{ viewer['first_seen'] }}</td>
+    <td>{{ viewer['last_seen'] }}</td>
+    <td><strong>{{ viewer['total_views'] }}</strong></td>
+    <td><code>{{ viewer['last_page'] }}</code></td>
+    <td>{{ viewer['device'] }}</td>
+    <td>{{ viewer['browser'] }}</td>
+    <td>{{ viewer['operating_system'] }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<p>No viewer activity has been recorded yet.</p>
 {% endif %}
 </div>
 
@@ -4142,13 +4298,24 @@ def home():
     global viewer_count
 
     viewer_count += 1
+    viewer_id, _ = track_viewer("/")
 
-    return render_template_string(
+    response = render_template_string(
         HTML,
-        viewer_count=viewer_count,
+        viewer_count=viewers_collection.count_documents({}),
         uploaded_images=gallery_images(),
         news_items=news_items()
     )
+    from flask import make_response
+    response = make_response(response)
+    response.set_cookie(
+        "jhr_viewer_id",
+        viewer_id,
+        max_age=60 * 60 * 24 * 365,
+        httponly=True,
+        samesite="Lax",
+    )
+    return response
 
 
 AUTH_HTML = r"""
@@ -4317,10 +4484,26 @@ def upload_gallery():
 
 @app.route("/news-image/<path:filename>")
 def news_image(filename):
+    # Serve the exact uploaded file instead of relying on Flask's static
+    # file handling. This also works when the app is started from a
+    # different working directory.
     filename = os.path.basename(filename)
     if not allowed_file(filename):
         abort(404)
-    return send_from_directory(NEWS_FOLDER, filename)
+
+    filepath = os.path.abspath(os.path.join(NEWS_FOLDER, filename))
+    news_root = os.path.abspath(NEWS_FOLDER)
+    if not filepath.startswith(news_root + os.sep) or not os.path.isfile(filepath):
+        abort(404)
+
+    return send_file(
+        filepath,
+        mimetype=request.accept_mimetypes.best_match([
+            "image/jpeg", "image/png", "image/webp", "image/gif"
+        ]) or None,
+        conditional=True,
+        max_age=0
+    )
 
 
 # =========================================================
@@ -4373,12 +4556,16 @@ def staff_dashboard():
         normalize_staff(doc)
         for doc in staff_accounts_collection.find().sort("username", 1)
     ]
+    viewers = detailed_viewers()
 
     return render_template_string(
         STAFF_DASHBOARD_HTML,
         messages=messages,
         staff_accounts=staff_accounts,
         news_items=news_items(),
+        viewers=viewers,
+        viewer_total=len(viewers),
+        viewer_views=sum(item["total_views"] for item in viewers),
         staff_username=session.get("staff_username")
     )
 
@@ -4560,10 +4747,25 @@ def delete_news_item(news_id):
 
 @app.route("/gallery-image/<path:filename>")
 def uploaded_gallery_image(filename):
+    # Serve uploaded gallery files directly from their absolute path.
+    # This avoids broken image URLs caused by relative/static-path issues.
     filename = os.path.basename(filename)
     if not allowed_file(filename):
         abort(404)
-    return send_from_directory(GALLERY_FOLDER, filename)
+
+    filepath = os.path.abspath(os.path.join(GALLERY_FOLDER, filename))
+    gallery_root = os.path.abspath(GALLERY_FOLDER)
+    if not filepath.startswith(gallery_root + os.sep) or not os.path.isfile(filepath):
+        abort(404)
+
+    return send_file(
+        filepath,
+        mimetype=request.accept_mimetypes.best_match([
+            "image/jpeg", "image/png", "image/webp", "image/gif"
+        ]) or None,
+        conditional=True,
+        max_age=0
+    )
 
 
 # =========================================================
