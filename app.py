@@ -1065,7 +1065,7 @@ alt="JHR Logo"
 <a href="#mission">Mission</a>
 <a href="#projects">Projects</a>
 <a href="#experience">Experience</a>
-<a href="#owners">Owners</a>
+<a href="#founders">Founders</a>
 <a href="#gallery">Gallery</a>
 <a href="#news">News & Announcements</a>
 <a href="#games">Games</a>
@@ -1435,98 +1435,89 @@ learning new technology skills.
 </section>
 
 
-<!-- =========================
-     OWNERS
-========================= -->
+<!-- =====================================================
+     FOUNDERS
+===================================================== -->
 
-<section class="section" id="owners">
+<section
+    class="section"
+    id="founders"
+>
 
-<h2 class="title">
-Meet the JHR Owners 👥
+<h2
+    class="title"
+    data-en="JHR Team 👥"
+    data-fil="JHR Team 👥"
+>
+    JHR Team 👥
 </h2>
 
-<p class="subtitle">
-The people behind JHR and its mission of
-empowerment through technology.
+<p
+    class="subtitle"
+    data-en="Meet the hearts and minds behind the vision."
+    data-fil="Kilalanin ang puso at isip sa likod ng pananaw."
+>
+    Meet the hearts and minds behind the vision.
 </p>
 
 <div class="owners">
 
-<!-- OWNER 1 -->
-
 <div class="owner-card">
-
 <img
-class="owner-photo"
-src="{{ url_for('static', filename='Owner1.jpg') }}"
-alt="JHR Owner 1"
+    class="owner-photo"
+    src="{{ url_for('static', filename='Owner1.jpg') }}"
+    alt="Jose Hugo Rafael T. Tan"
+    loading="lazy"
+    decoding="async"
 >
 
 <div class="owner-info">
-
-<h3
-data-en="JHR Owner 1"
-data-fil="May-ari ng JHR 1"
->
-JHR Owner 1
-</h3>
+<h3>Jose Hugo Rafael T. Tan</h3>
 
 <div
-class="owner-role"
-data-en="Founder / Owner"
-data-fil="Tagapagtatag / May-ari"
+    class="owner-role"
+    data-en="Founder"
+    data-fil="Tagapagtatag"
 >
-Founder / Owner
+    Founder
 </div>
 
 <p
-data-en="The founder helps guide JHR's vision, projects and technology-focused activities. Through creativity, learning and service, the goal is to help people discover opportunities through technology."
-data-fil="Tumutulong ang tagapagtatag na gabayan ang pananaw, mga proyekto at mga aktibidad ng JHR na nakatuon sa teknolohiya. Sa pamamagitan ng pagkamalikhain, pagkatuto at paglilingkod, layunin nitong makatulong sa mga tao na makahanap ng mga oportunidad gamit ang teknolohiya."
+    data-en="Hugo helps guide JHR's vision, projects, and technology-focused activities."
+    data-fil="Tumutulong sa paggabay sa pananaw, mga proyekto at mga aktibidad ng JHR na nakatuon sa teknolohiya."
 >
-The founder helps guide JHR's vision, projects and technology-focused activities. Through creativity, learning and service, the goal is to help people discover opportunities through technology.
+    Hugo helps guide JHR's vision, projects, and technology-focused activities.
 </p>
-
 </div>
-
 </div>
-
-
-<!-- OWNER 2 -->
 
 <div class="owner-card">
-
 <img
-class="owner-photo"
-src="{{ url_for('static', filename='Owner2.png') }}"
-alt="JHR Owner 2"
+    class="owner-photo"
+    src="{{ url_for('static', filename='Owner2.png') }}"
+    alt="Julia Helga Raquel T. Tan"
+    loading="lazy"
+    decoding="async"
 >
 
 <div class="owner-info">
-
-<h3
-data-en="JHR Owner 2"
-data-fil="May-ari ng JHR 2"
->
-JHR Owner 2
-</h3>
+<h3>Julia Helga Raquel T. Tan</h3>
 
 <div
-class="owner-role"
-data-en="Co-Founder / Owner"
-data-fil="Co-Founder / May-ari"
+    class="owner-role"
+    data-en="Founder"
+    data-fil="Tagapagtatag"
 >
-Co-Founder / Owner
+    Founder
 </div>
 
 <p
-data-en="The co-founder supports JHR's projects, creativity and technology activities. Together, the owners work to develop ideas that can inspire learning, innovation and positive community impact."
-data-fil="Sinusuportahan ng co-founder ang mga proyekto, pagkamalikhain at mga aktibidad sa teknolohiya ng JHR. Sama-sama, nagsisikap ang mga may-ari na bumuo ng mga ideyang makapagbibigay-inspirasyon sa pagkatuto, inobasyon at positibong epekto sa komunidad."
+    data-en="Julia supports JHR's creativity, projects, and community-focused activities."
+    data-fil="Sinusuportahan ang pagkamalikhain, mga proyekto at mga aktibidad ng JHR para sa komunidad."
 >
-The co-founder supports JHR's projects, creativity and technology activities. Together, the owners work to develop ideas that can inspire learning, innovation and positive community impact.
+    Julia supports JHR's creativity, projects, and community-focused activities.
 </p>
-
 </div>
-
 </div>
 
 </div>
