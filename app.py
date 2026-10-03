@@ -1,768 +1,1357 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, abort, send_file, flash
-import webbrowser
-import threading
-import sqlite3
-import uuid
-import re
-import json
-
-try:
-    from pymongo import MongoClient, DESCENDING
-    import gridfs
-except ImportError:
-    MongoClient = None
-    DESCENDING = -1
-    gridfs = None
-
-try:
-    import requests
-except ImportError:
-    requests = None
+from flask import Flask, render_template_string, send_from_directory, send_file, abort, request, redirect, url_for, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 import os
-import secrets
-from io import BytesIO
-from datetime import datetime
+import mimetypes
+from functools import wraps
+from datetime import datetime, timedelta
+import time
+
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError, PyMongoError
+from bson import ObjectId
+from uuid import uuid4
+import re
+from bson.errors import InvalidId
+
+app = Flask(
+    __name__,
+    static_folder="static",
+    static_url_path="/static"
+)
+
+viewer_count = 0
+
+# Staff sessions expire after 5 minutes of inactivity.
+STAFF_SESSION_TIMEOUT = timedelta(minutes=5)
+app.config["PERMANENT_SESSION_LIFETIME"] = STAFF_SESSION_TIMEOUT
+app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+
+# =========================================================
+# LOGIN / GALLERY / MONGODB SETTINGS
+# =========================================================
+
+app.secret_key = os.environ.get(
+    "JHR_SECRET_KEY",
+    "change-this-secret-key"
+)
+
+# MongoDB Atlas example:
+# mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority
+# Local MongoDB example:
+# mongodb://127.0.0.1:27017/
+MONGO_URI = os.environ.get(
+    "MONGO_URI",
+    "mongodb+srv://josehugorafaeltan_db_user:CG4Gvfq2rOjelCHx@jhrwebsite.xaryu3e.mongodb.net/?retryWrites=true&w=majority"
+)
+
+MONGO_DB_NAME = os.environ.get(
+    "MONGO_DB_NAME",
+    "jhr_database"
+)
+
+GALLERY_FOLDER = os.path.abspath(os.path.join(app.static_folder, "gallery"))
+NEWS_FOLDER = os.path.abspath(os.path.join(app.static_folder, "news_uploads"))
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+os.makedirs(GALLERY_FOLDER, exist_ok=True)
+os.makedirs(NEWS_FOLDER, exist_ok=True)
 
 
-app = Flask(__name__)
+# =========================================================
+# MONGODB CONNECTION
+# =========================================================
 
-# ============================================================
-# JHR CONTENT STORAGE
-# ============================================================
+try:
+    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
+    mongo_client.admin.command("ping")
+    mongo_db = mongo_client[MONGO_DB_NAME]
 
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.environ.get("JHR_DATABASE", os.path.join(BASE_DIR, "jhr.db"))
-_db_dir = os.path.dirname(os.path.abspath(DATABASE))
-os.makedirs(_db_dir, exist_ok=True)
-STAFF_USERNAME = os.environ.get("STAFF_USERNAME", "admin")
-STAFF_PASSWORD = os.environ.get("STAFF_PASSWORD", "ChangeMe123!")
-MAX_IMAGE_MB = 10
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+    staff_accounts_collection = mongo_db["staff_accounts"]
+    class_messages_collection = mongo_db["class_messages"]
+    news_collection = mongo_db["news_items"]
+    gallery_collection = mongo_db["gallery_items"]
+    viewers_collection = mongo_db["viewers"]
 
-# MongoDB is used in production so uploads survive Render redeploys.
-MONGO_URI = os.environ.get("MONGO_URI", "").strip()
-MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "jhr").strip() or "jhr"
-mongo_client = None
-mongo_db = None
-mongo_fs = None
+    staff_accounts_collection.create_index("username", unique=True)
+    gallery_collection.create_index("filename", unique=True)
+    viewers_collection.create_index("viewer_id", unique=True)
+    viewers_collection.create_index([("last_seen", -1)])
 
-if MONGO_URI and MongoClient is not None and gridfs is not None:
-    # Never let a bad Render environment variable prevent Flask/Gunicorn from
-    # starting. PyMongo requires mongodb:// or mongodb+srv://.
-    if MONGO_URI.startswith(("mongodb://", "mongodb+srv://")):
-        try:
-            mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
-            mongo_db = mongo_client[MONGO_DB_NAME]
-            mongo_fs = gridfs.GridFS(mongo_db)
-            # Force a connection check so an invalid/unreachable Atlas setup is
-            # detected here and the app can safely fall back to SQLite.
-            mongo_client.admin.command("ping")
-        except Exception as mongo_error:
-            print(f"MongoDB disabled: {mongo_error}")
-            mongo_client = None
-            mongo_db = None
-            mongo_fs = None
+except PyMongoError as exc:
+    raise RuntimeError(
+        "Could not connect to MongoDB. Set MONGO_URI to your MongoDB Atlas "
+        "connection string or make sure local MongoDB is running."
+    ) from exc
+
+
+def parse_user_agent(user_agent):
+    """Return a simple, readable browser/device/OS summary without extra dependencies."""
+    ua = user_agent or ""
+
+    if re.search(r"Edg/", ua):
+        browser = "Microsoft Edge"
+    elif re.search(r"OPR/|Opera", ua):
+        browser = "Opera"
+    elif re.search(r"Chrome/", ua) and not re.search(r"Edg/", ua):
+        browser = "Google Chrome"
+    elif re.search(r"Firefox/", ua):
+        browser = "Mozilla Firefox"
+    elif re.search(r"Safari/", ua) and not re.search(r"Chrome/", ua):
+        browser = "Safari"
     else:
-        print("MongoDB disabled: MONGO_URI must begin with mongodb:// or mongodb+srv://")
+        browser = "Other / Unknown browser"
 
-def using_mongo():
-    return mongo_db is not None and mongo_fs is not None
+    if re.search(r"Windows NT", ua):
+        operating_system = "Windows"
+    elif re.search(r"Android", ua):
+        operating_system = "Android"
+    elif re.search(r"iPhone|iPad|iPod", ua):
+        operating_system = "iOS / iPadOS"
+    elif re.search(r"Mac OS X", ua):
+        operating_system = "macOS"
+    elif re.search(r"Linux", ua):
+        operating_system = "Linux"
+    else:
+        operating_system = "Other / Unknown OS"
 
+    if re.search(r"Mobile|Android|iPhone|iPod", ua):
+        device = "Mobile"
+    elif re.search(r"iPad|Tablet", ua):
+        device = "Tablet"
+    else:
+        device = "Desktop / Laptop"
 
-def get_db():
-    db = sqlite3.connect(DATABASE)
-    db.row_factory = sqlite3.Row
-    return db
-
-
-def init_db():
-    db = get_db()
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            section TEXT NOT NULL CHECK(section IN ('gallery','news','announcement')),
-            title TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            image_data BLOB,
-            image_mime TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS viewers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ip TEXT NOT NULL,
-            device TEXT NOT NULL DEFAULT 'Unknown',
-            browser TEXT NOT NULL DEFAULT 'Unknown',
-            user_agent TEXT NOT NULL DEFAULT '',
-            country TEXT NOT NULL DEFAULT 'Unknown',
-            city TEXT NOT NULL DEFAULT 'Unknown',
-            region TEXT NOT NULL DEFAULT '',
-            referrer TEXT NOT NULL DEFAULT 'Direct',
-            path TEXT NOT NULL DEFAULT '/',
-            viewed_at TEXT NOT NULL
-        )
-    """)
-    db.commit()
-    db.close()
-
-
-def staff_required():
-    return session.get("staff_logged_in") is True
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def read_uploaded_image(required=False):
-    image = request.files.get("image")
-    if not image or not image.filename:
-        if required:
-            raise ValueError("Please select an image.")
-        return None, None
-
-    if not allowed_file(image.filename):
-        raise ValueError("Only PNG, JPG, JPEG, GIF and WEBP images are allowed.")
-
-    data = image.read()
-    if not data:
-        raise ValueError("The selected image is empty.")
-
-    if len(data) > MAX_IMAGE_MB * 1024 * 1024:
-        raise ValueError(f"Image must be smaller than {MAX_IMAGE_MB} MB.")
-
-    mime = image.mimetype or "application/octet-stream"
-    if mime not in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
-        raise ValueError("Invalid image type.")
-
-    return data, mime
-
-
-def get_posts(section):
-    if using_mongo():
-        rows = list(mongo_db.posts.find({"section": section}).sort("created_at_sort", DESCENDING))
-        for row in rows:
-            row["id"] = str(row["_id"])
-            row["image_mime"] = row.get("image_mime")
-        return rows
-    db = get_db()
-    rows = db.execute(
-        "SELECT id, section, title, description, image_mime, created_at FROM posts WHERE section=? ORDER BY id DESC",
-        (section,)
-    ).fetchall()
-    db.close()
-    return rows
-
-
-def get_news_updates():
-    """News and announcements are displayed and managed as one combined feed."""
-    if using_mongo():
-        rows = list(mongo_db.posts.find({"section": {"$in": ["news", "announcement"]}}).sort("created_at_sort", DESCENDING))
-        for row in rows:
-            row["id"] = str(row["_id"])
-            row["image_mime"] = row.get("image_mime")
-        return rows
-    db = get_db()
-    rows = db.execute(
-        "SELECT id, section, title, description, image_mime, created_at "
-        "FROM posts WHERE section IN ('news','announcement') ORDER BY id DESC"
-    ).fetchall()
-    db.close()
-    return rows
+    return {
+        "browser": browser,
+        "operating_system": operating_system,
+        "device": device,
+    }
 
 
 def get_client_ip():
+    """Get the visitor IP, including the forwarded IP used by Render/proxies."""
     forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.remote_addr or "Unknown"
 
 
-def parse_user_agent(ua):
-    ua = ua or ""
-    if re.search(r"iPhone", ua, re.I):
-        device = "iPhone"
-    elif re.search(r"iPad", ua, re.I):
-        device = "iPad"
-    elif re.search(r"Android", ua, re.I):
-        device = "Android device"
-    elif re.search(r"Windows", ua, re.I):
-        device = "Windows PC"
-    elif re.search(r"Macintosh|Mac OS", ua, re.I):
-        device = "Mac"
-    elif re.search(r"Linux", ua, re.I):
-        device = "Linux PC"
+def track_viewer(page="/"):
+    """Track one browser visitor while keeping a stable anonymous viewer ID in a cookie."""
+    viewer_id = request.cookies.get("jhr_viewer_id")
+    new_viewer = False
+
+    if not viewer_id or not re.fullmatch(r"[a-f0-9]{32}", viewer_id):
+        viewer_id = uuid4().hex
+        new_viewer = True
+
+    now = now_string()
+    ua = request.headers.get("User-Agent", "")
+    device_info = parse_user_agent(ua)
+    client_ip = get_client_ip()
+
+    existing = viewers_collection.find_one({"viewer_id": viewer_id})
+    if existing:
+        viewers_collection.update_one(
+            {"viewer_id": viewer_id},
+            {
+                "$set": {
+                    "last_seen": now,
+                    "last_page": page,
+                    "last_ip": client_ip,
+                    **device_info,
+                },
+                "$inc": {"total_views": 1},
+            },
+        )
     else:
-        device = "Unknown device"
-    if re.search(r"Edg/", ua): browser = "Microsoft Edge"
-    elif re.search(r"Chrome/", ua) and not re.search(r"Edg/", ua): browser = "Google Chrome"
-    elif re.search(r"Firefox/", ua): browser = "Mozilla Firefox"
-    elif re.search(r"Safari/", ua) and not re.search(r"Chrome/", ua): browser = "Safari"
-    else: browser = "Other / Unknown"
-    return device, browser
+        viewers_collection.insert_one({
+            "viewer_id": viewer_id,
+            "first_seen": now,
+            "last_seen": now,
+            "last_page": page,
+            "first_ip": client_ip,
+            "last_ip": client_ip,
+            "total_views": 1,
+            **device_info,
+        })
+        new_viewer = True
+
+    return viewer_id, new_viewer
 
 
-def lookup_ip_location(ip):
-    if not requests or not ip or ip in {"Unknown", "127.0.0.1", "::1"} or ip.startswith(("10.", "192.168.", "172.16.")):
-        return {"country": "Local/Unknown", "city": "Local/Unknown", "region": ""}
-    try:
-        r = requests.get(f"https://ipapi.co/{ip}/json/", timeout=2.5)
-        if r.ok:
-            data = r.json()
-            return {"country": data.get("country_name", "Unknown"), "city": data.get("city", "Unknown"), "region": data.get("region", "")}
-    except Exception:
-        pass
-    return {"country": "Unknown", "city": "Unknown", "region": ""}
+def detailed_viewers():
+    """Return organized viewer records for the staff viewer area."""
+    records = []
+    for doc in viewers_collection.find().sort("last_seen", -1):
+        viewer_id = doc.get("viewer_id", "")
+        records.append({
+            "id": viewer_id[-8:].upper() if viewer_id else "UNKNOWN",
+            "full_id": viewer_id,
+            "first_seen": doc.get("first_seen", ""),
+            "last_seen": doc.get("last_seen", ""),
+            "total_views": int(doc.get("total_views", 0)),
+            "last_page": doc.get("last_page", "/"),
+            "first_ip": doc.get("first_ip", doc.get("last_ip", "Unknown")),
+            "last_ip": doc.get("last_ip", "Unknown"),
+            "device": doc.get("device", "Unknown"),
+            "browser": doc.get("browser", "Unknown"),
+            "operating_system": doc.get("operating_system", "Unknown"),
+        })
+    return records
 
 
-def record_viewer():
-    """Record every homepage visit. MongoDB is preferred; SQLite is a reliable fallback."""
-    try:
-        ip = get_client_ip()
-        device, browser = parse_user_agent(request.headers.get("User-Agent", ""))
-        now = datetime.utcnow()
-        location = lookup_ip_location(ip)
-        data = {
-            "ip": ip,
-            "device": device,
-            "browser": browser,
-            "user_agent": request.headers.get("User-Agent", ""),
-            "country": location["country"],
-            "city": location["city"],
-            "region": location["region"],
-            "referrer": request.referrer or "Direct",
-            "path": request.path,
-            "viewed_at": now,
-        }
-        if using_mongo():
-            mongo_db.viewers.insert_one(data)
-        else:
-            db = get_db()
-            db.execute(
-                """INSERT INTO viewers
-                (ip,device,browser,user_agent,country,city,region,referrer,path,viewed_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (ip, device, browser, data["user_agent"], location["country"],
-                 location["city"], location["region"], data["referrer"],
-                 data["path"], now.isoformat(timespec="seconds"))
+def now_string():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def init_mongodb():
+    # Default staff login:
+    # username = admin
+    # password = admin123
+    if not staff_accounts_collection.find_one({"username": "admin"}):
+        try:
+            staff_accounts_collection.insert_one({
+                "username": "admin",
+                "password": generate_password_hash("admin123"),
+                "created_at": now_string()
+            })
+        except DuplicateKeyError:
+            pass
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def uploaded_image_response(folder, filename):
+    """Safely serve an uploaded image with the correct MIME type."""
+    safe_name = os.path.basename(filename or "")
+    if not safe_name or not allowed_file(safe_name):
+        abort(404)
+
+    root = os.path.abspath(folder)
+    filepath = os.path.abspath(os.path.join(root, safe_name))
+
+    if not filepath.startswith(root + os.sep) or not os.path.isfile(filepath):
+        abort(404)
+
+    mime_type, _ = mimetypes.guess_type(filepath)
+    if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+        abort(404)
+
+    response = send_file(filepath, mimetype=mime_type, conditional=True, max_age=0)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+def normalize_staff(doc):
+    return {
+        "id": str(doc["_id"]),
+        "username": doc.get("username", ""),
+        "created_at": doc.get("created_at", "")
+    }
+
+
+def normalize_message(doc):
+    return {
+        "id": str(doc["_id"]),
+        "name": doc.get("name", ""),
+        "email": doc.get("email", ""),
+        "message": doc.get("message", ""),
+        "created_at": doc.get("created_at", "")
+    }
+
+
+def news_items():
+    items = []
+    for doc in news_collection.find().sort("created_at", -1):
+        author = ""
+        author_id = doc.get("author_id")
+        if author_id:
+            try:
+                author_doc = staff_accounts_collection.find_one({"_id": ObjectId(author_id)})
+                if author_doc:
+                    author = author_doc.get("username", "")
+            except (InvalidId, TypeError):
+                pass
+
+        image_files = [
+            name for name in doc.get("images", [])
+            if name and os.path.isfile(os.path.join(NEWS_FOLDER, os.path.basename(name)))
+        ]
+
+        items.append({
+            "id": str(doc["_id"]),
+            "kind": doc.get("kind", "Announcement"),
+            "title": doc.get("title", ""),
+            "content": doc.get("content", ""),
+            "created_at": doc.get("created_at", ""),
+            "author": author,
+            "images": image_files
+        })
+    return items
+
+
+def gallery_images():
+    images = []
+    existing_metadata = {
+        doc.get("filename"): doc
+        for doc in gallery_collection.find()
+        if doc.get("filename")
+    }
+
+    if os.path.isdir(GALLERY_FOLDER):
+        for filename in sorted(os.listdir(GALLERY_FOLDER)):
+            if not allowed_file(filename):
+                continue
+
+            doc = existing_metadata.get(filename)
+
+            # Keep previously uploaded gallery files working even if they
+            # were uploaded before gallery metadata was introduced.
+            if not doc:
+                doc = {
+                    "filename": filename,
+                    "title": os.path.splitext(filename)[0],
+                    "description": "Imported picture",
+                    "created_at": now_string()
+                }
+                try:
+                    gallery_collection.insert_one(doc.copy())
+                except DuplicateKeyError:
+                    pass
+
+            images.append({
+                "id": str(doc.get("_id", "")),
+                "filename": filename,
+                "title": doc.get("title") or os.path.splitext(filename)[0],
+                "description": doc.get("description") or "Imported picture"
+            })
+
+    return images
+
+
+init_mongodb()
+
+
+# =========================================================
+# AUTOMATIC IMAGE ROUTE
+# =========================================================
+#
+# The website can request:
+#
+# /media/IMG_12345
+#
+# and this route will automatically look for:
+#
+# IMG_12345
+# IMG_12345.jpg
+# IMG_12345.jpeg
+# IMG_12345.png
+# IMG_12345.webp
+#
+# This prevents image-extension problems.
+# =========================================================
+
+IMAGE_EXTENSIONS = [
+    "",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp"
+]
+
+
+@app.route("/media/<path:image_name>")
+def media(image_name):
+
+    # Prevent directory traversal.
+    image_name = os.path.basename(image_name)
+
+    # If the filename already includes an extension,
+    # first try it exactly as provided.
+    supplied_extension = os.path.splitext(image_name)[1]
+
+    if supplied_extension:
+
+        possible_files = [
+            image_name
+        ]
+
+    else:
+
+        possible_files = [
+            image_name + extension
+            for extension in IMAGE_EXTENSIONS
+        ]
+
+    for filename in possible_files:
+
+        filepath = os.path.join(
+            app.static_folder,
+            filename
+        )
+
+        if os.path.isfile(filepath):
+
+            return send_from_directory(
+                app.static_folder,
+                filename,
+                max_age=86400
             )
-            db.commit()
-            db.close()
-    except Exception as e:
-        # Viewer tracking must never break the public website.
-        print(f"Viewer tracking error: {e}")
+
+    abort(404)
 
 
-init_db()
+# =========================================================
+# WEBSITE
+# =========================================================
 
-def migrate_sqlite_to_mongo():
-    """Copy existing local SQLite posts into MongoDB once, preserving old uploads."""
-    if not using_mongo():
-        return
-    try:
-        if mongo_db.posts.count_documents({}) > 0:
-            return
-        db = get_db()
-        rows = db.execute("SELECT * FROM posts ORDER BY id ASC").fetchall()
-        db.close()
-        for row in rows:
-            doc = {
-                "legacy_id": row["id"],
-                "section": row["section"],
-                "title": row["title"],
-                "description": row["description"],
-                "created_at": row["created_at"],
-            }
-            if row["image_data"]:
-                doc["image_id"] = mongo_fs.put(row["image_data"], contentType=row["image_mime"] or "application/octet-stream", filename=f"legacy-{row['id']}")
-                doc["image_mime"] = row["image_mime"]
-            mongo_db.posts.insert_one(doc)
-    except Exception:
-        # Do not prevent the website from starting if migration is unavailable.
-        pass
+STAFF_DASHBOARD_HTML = r"""
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JHR | Staff Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#10131a;color:#fff;padding:30px}
+.wrap{max-width:1100px;margin:auto}
+.card{background:#191e28;border:1px solid #303746;border-radius:18px;padding:24px;margin:0 0 22px;box-shadow:0 12px 35px rgba(0,0,0,.18)}
+h1,h2{margin-top:0}
+input,textarea,select{width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit}
+textarea{min-height:130px;resize:vertical}
+button{border:0;border-radius:11px;padding:12px 17px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;cursor:pointer;font-weight:800}
+a{color:#b894ff}
+.message{border-top:1px solid #303746;padding:16px 0}
+.message:first-child{border-top:0}
+.meta{color:#aab4c2;font-size:14px}
+.notice{padding:12px;border-radius:10px;background:#241d3c;margin-bottom:8px}
+.staff-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}.staff-tab{background:#0f131a;border:1px solid #303746;color:#cbd5e1;padding:11px 15px;border-radius:10px;cursor:pointer;font-weight:800}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;border-color:transparent}.staff-panel{display:none}.staff-panel.active{display:block}.viewer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.viewer-summary>div{background:#0f131a;border:1px solid #303746;border-radius:14px;padding:16px}.viewer-summary strong{display:block;font-size:24px;color:#fff}.viewer-summary span{display:block;margin-top:5px;color:#aab4c2;font-size:13px}.viewer-table-wrap{overflow:auto;border:1px solid #303746;border-radius:14px}.viewer-table{width:100%;min-width:1350px;border-collapse:collapse}.viewer-table th,.viewer-table td{padding:12px 13px;text-align:left;border-bottom:1px solid #303746;vertical-align:top}.viewer-table th{background:#0f131a;color:#d8c9ff;font-size:13px;position:sticky;top:0}.viewer-table td{font-size:13px}.viewer-table tr:last-child td{border-bottom:0}.viewer-table code{color:#cfc4ff}.viewer-table tbody tr:hover{background:#202631}.ip-cell{font-family:monospace;color:#e9d5ff;font-weight:700}.viewer-detail{font-size:12px;color:#aab4c2;margin-top:4px}
+@media(max-width:800px){.viewer-summary{grid-template-columns:1fr}.viewer-table{min-width:1350px}}
 
-migrate_sqlite_to_mongo()
+.who-are-we-cards{display:flex;justify-content:center;align-items:center}
+.who-we-are-box{width:min(950px,100%);margin:0 auto;text-align:center}
+.who-we-are-box p{margin:0;text-align:center;font-weight:700;text-indent:2em;line-height:1.9}
+.who-we-are-box p + p{margin-top:32px}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+<p><a href="{{ url_for('home') }}">← Back to JHR website</a></p>
+<h1>👨‍💼 JHR Staff Dashboard</h1>
+<p>You are logged in as <strong>{{ staff_username }}</strong>.</p>
+
+<div class="staff-tabs" role="tablist" aria-label="Staff dashboard sections">
+    <button class="staff-tab active" type="button" data-panel="messages">📨 Messages</button>
+    <button class="staff-tab" type="button" data-panel="news">📰 News & Announcements</button>
+    <button class="staff-tab" type="button" data-panel="viewers">👁️ Detailed Viewers</button>
+    <button class="staff-tab" type="button" data-panel="accounts">👤 Staff Accounts</button>
+    <button class="staff-tab" type="button" data-panel="password">🔑 Change Password</button>
+</div>
+
+{% with notices = get_flashed_messages() %}
+{% for notice in notices %}
+<div class="notice">{{ notice }}</div>
+{% endfor %}
+{% endwith %}
+
+<div class="card staff-panel active" id="panel-messages">
+<h2>📨 Free Coding Class Messages</h2>
+{% if messages %}
+    {% for msg in messages %}
+    <div class="message">
+        <strong>{{ msg["name"] }}</strong><br>
+        <span class="meta">{{ msg["email"] }} · {{ msg["created_at"] }}</span>
+        <p style="white-space:pre-wrap;">{{ msg["message"] }}</p>
+        <form method="POST"
+              action="{{ url_for('delete_staff_message', message_id=msg['id']) }}"
+              onsubmit="return confirm('Are you sure you want to permanently delete this message?');">
+            <button type="submit"
+                    style="background:#b42318;color:#fff;padding:9px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:800;">
+                🗑️ Delete Message
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No coding-class messages yet.</p>
+{% endif %}
+</div>
+
+<div class="card staff-panel" id="panel-password">
+<h2>🔑 Change My Staff Password</h2>
+<form method="POST" action="{{ url_for('change_staff_password') }}">
+<label>Current password</label>
+<input type="password" name="current_password" required autocomplete="current-password">
+<label>New password</label>
+<input type="password" name="new_password" minlength="6" required autocomplete="new-password">
+<label>Confirm new password</label>
+<input type="password" name="confirm_password" minlength="6" required autocomplete="new-password">
+<button type="submit">Change Password</button>
+</form>
+</div>
+
+<div class="card staff-panel" id="panel-staff">
+<h2>👥 Add New Staff Account</h2>
+<form method="POST" action="{{ url_for('add_staff_account') }}">
+<label>Username</label>
+<input type="text" name="username" minlength="3" maxlength="80" required autocomplete="off">
+<label>Password</label>
+<input type="password" name="password" minlength="6" required autocomplete="new-password">
+<label>Confirm password</label>
+<input type="password" name="confirm_password" minlength="6" required autocomplete="new-password">
+<button type="submit">Create Staff Account</button>
+</form>
+</div>
+
+<div class="card staff-panel" id="panel-news">
+<h2>📰 Add News / Announcement</h2>
+<form method="POST" action="{{ url_for('add_news_item') }}" enctype="multipart/form-data">
+<label>Type</label>
+<select name="kind" required style="width:100%;padding:13px;border:1px solid #3c4658;border-radius:11px;background:#0f131a;color:#fff;margin:7px 0 12px;font:inherit;">
+<option value="Announcement">Announcement</option>
+<option value="News">News</option>
+</select>
+<label>Title</label>
+<input type="text" name="title" maxlength="160" required placeholder="News or announcement title">
+<label>Content</label>
+<textarea name="content" maxlength="10000" required placeholder="Write the news or announcement..."></textarea>
+<label>Pictures (optional)</label>
+<input type="file" name="news_images" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+<small class="meta">You can attach one or more pictures to this news/announcement.</small>
+<button type="submit">📢 Publish</button>
+</form>
+</div>
+
+<div class="card staff-panel" id="panel-published-news">
+<h2>🗞️ Published News & Announcements</h2>
+{% if news_items %}
+    {% for item in news_items %}
+    <div class="message">
+        <strong>{{ item["kind"] }} — {{ item["title"] }}</strong><br>
+        <span class="meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</span>
+        <p style="white-space:pre-wrap;">{{ item["content"] }}</p>
+        {% if item["images"] %}
+        <div class="staff-news-images">
+            {% for image in item["images"] %}
+            <img src="{{ url_for('news_image', filename=image) }}" alt="{{ item['title'] }}" loading="lazy">
+            {% endfor %}
+        </div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('delete_news_item', news_id=item['id']) }}" onsubmit="return confirm('Delete this news or announcement permanently?');">
+            <button type="submit" style="background:#b42318;color:#fff;padding:9px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:800;">🗑️ Delete</button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No news or announcements published yet.</p>
+{% endif %}
+</div>
+
+<div class="card staff-panel" id="panel-viewers">
+<h2>👁️ Detailed Viewers</h2>
+<p class="meta">Detailed visitor activity for staff. Each browser receives an anonymous Viewer ID. IP address, device, browser, operating system, visit times, page activity, and view count are shown here.</p>
+
+<div class="viewer-summary">
+    <div><strong>{{ viewer_total }}</strong><span>Unique Viewers</span></div>
+    <div><strong>{{ viewer_views }}</strong><span>Total Page Views</span></div>
+    <div><strong>{{ viewers[0]['last_seen'] if viewers else '—' }}</strong><span>Latest Activity</span></div>
+</div>
+
+{% if viewers %}
+<div class="viewer-table-wrap">
+<table class="viewer-table">
+<thead>
+<tr>
+    <th>Viewer</th>
+    <th>First Visit</th>
+    <th>Last Activity</th>
+    <th>Views</th>
+    <th>Last Page</th>
+    <th>IP Address</th>
+    <th>Device</th>
+    <th>Browser</th>
+    <th>Operating System</th>
+</tr>
+</thead>
+<tbody>
+{% for viewer in viewers %}
+<tr>
+    <td><strong>Viewer #{{ viewer['id'] }}</strong></td>
+    <td>{{ viewer['first_seen'] }}</td>
+    <td>{{ viewer['last_seen'] }}</td>
+    <td><strong>{{ viewer['total_views'] }}</strong></td>
+    <td><code>{{ viewer['last_page'] }}</code></td>
+    <td class="ip-cell">{{ viewer['last_ip'] }}<div class="viewer-detail">First: {{ viewer['first_ip'] }}</div></td>
+    <td>{{ viewer['device'] }}</td>
+    <td>{{ viewer['browser'] }}</td>
+    <td>{{ viewer['operating_system'] }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<p>No viewer activity has been recorded yet.</p>
+{% endif %}
+</div>
+
+<div class="card staff-panel" id="panel-accounts">
+<h2>👤 Current Staff Accounts</h2>
+{% for staff in staff_accounts %}
+<p><strong>{{ staff["username"] }}</strong><br><span class="meta">Created {{ staff["created_at"] }}</span></p>
+{% endfor %}
+</div>
+</div>
+<script>
+(function () {
+    const tabs = document.querySelectorAll('.staff-tab');
+    const panels = document.querySelectorAll('.staff-panel');
+    function activate(name) {
+        tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.panel === name));
+        panels.forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + name));
+        history.replaceState(null, '', '#' + name);
+    }
+    tabs.forEach(tab => tab.addEventListener('click', () => activate(tab.dataset.panel)));
+    const initial = location.hash.replace('#', '');
+    if (['messages','news','viewers','accounts','password'].includes(initial)) {
+        activate(initial);
+    }
+})();
+</script>
+<script>
+(function () {
+    const timeoutMs = 5 * 60 * 1000;
+    let lastActivity = Date.now();
+
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(function (eventName) {
+        window.addEventListener(eventName, function () {
+            lastActivity = Date.now();
+        }, { passive: true });
+    });
+
+    setInterval(function () {
+        if (Date.now() - lastActivity >= timeoutMs) {
+            window.location.href = "{{ url_for('logout') }}";
+        } else {
+            fetch("{{ url_for('staff_heartbeat') }}", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {"X-Requested-With": "XMLHttpRequest"}
+            }).catch(function () {});
+        }
+    }, 60 * 1000);
+})();
+</script>
+</body>
+</html>
+"""
 
 HTML = r"""
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>JHR | Empowerment Through Technology</title>
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<meta
+    name="theme-color"
+    content="#7c3aed"
+>
+
+<meta
+    name="description"
+    content="JHR — Technology, Creativity, and Learning"
+>
+
+<title>
+JHR | Technology, Creativity, and Learning
+</title>
+
 
 <style>
 
+/* =====================================================
+   RESET
+===================================================== */
+
 * {
-    box-sizing: border-box;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
     scroll-behavior: smooth;
 }
 
+
+/* =====================================================
+   VARIABLES
+===================================================== */
+
 :root {
-    --purple: #7628d9;
-    --violet: #a83cff;
-    --pink: #ff4fcf;
-    --cyan: #24e7ff;
-    --green: #62ff8a;
-    --yellow: #ffe45e;
 
-    --background: #f7f1ff;
-    --card: #ffffff;
-    --text: #261533;
-    --muted: #6d6277;
+    --purple:
+        #7c3aed;
+
+    --purple-dark:
+        #4c1d95;
+
+    --purple-deep:
+        #2e1065;
+
+    --purple-light:
+        #a78bfa;
+
+    --purple-soft:
+        #ede9fe;
+
+    --pink:
+        #c026d3;
+
+    --background:
+        #faf7ff;
+
+    --card:
+        #ffffff;
+
+    --text:
+        #24113f;
+
+    --muted:
+        #6b5b82;
+
+    --border:
+        #ded0ff;
+
+    --shadow:
+        0 12px 35px
+        rgba(76,29,149,.14);
 }
 
-body.dark {
-    --background: #120a1c;
-    --card: #21112e;
-    --text: #ffffff;
-    --muted: #d2c7db;
-}
+
+/* =====================================================
+   BODY
+===================================================== */
 
 body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: var(--background);
-    color: var(--text);
-    line-height: 1.7;
-    overflow-x: hidden;
 
-    text-align: center;
-}
-
-/* =========================
-   HEADER
-========================= */
-
-nav {
-    position: sticky;
-    top: 0;
-    z-index: 9999;
-
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    gap: 20px;
-    padding: 10px 25px;
-
-    background: rgba(255,255,255,.96);
-    backdrop-filter: blur(15px);
-
-    box-shadow: 0 5px 30px rgba(60,20,100,.18);
-}
-
-body.dark nav {
-    background: rgba(25,12,35,.96);
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-
-    font-size: 25px;
-    font-weight: 1000;
-    letter-spacing: 2px;
-
-    color: var(--purple);
-}
-
-.logo img {
-    width: 48px;
-    height: 48px;
-
-    object-fit: contain;
-
-    display: block;
-
-    /* Makes white background of logo less noticeable */
-    mix-blend-mode: multiply;
-}
-
-body.dark .logo img {
-    mix-blend-mode: screen;
-}
-
-.nav-links {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.nav-links a {
-    color: var(--text);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: bold;
-}
-
-.nav-links a:hover {
-    color: var(--pink);
-}
-
-.nav-button,
-.language-button {
-    border: none;
-    padding: 8px 12px;
-    border-radius: 20px;
-    cursor: pointer;
-
-    background: linear-gradient(
-        135deg,
-        var(--purple),
-        var(--pink)
-    );
-
-    color: white;
-    font-weight: bold;
-}
-
-/* =========================
-   HERO
-========================= */
-
-.hero {
-    min-height: 680px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    text-align: center;
-
-    position: relative;
-    overflow: hidden;
-
-    color: white;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
 
     background:
-        radial-gradient(
-            circle at 20% 20%,
-            rgba(36,231,255,.35),
-            transparent 25%
-        ),
-        radial-gradient(
-            circle at 80% 20%,
-            rgba(255,79,207,.35),
-            transparent 25%
-        ),
-        radial-gradient(
-            circle at 50% 90%,
-            rgba(98,255,138,.25),
-            transparent 30%
-        ),
         linear-gradient(
-            135deg,
-            #26083f,
-            #7027d9,
-            #42136e
+            180deg,
+            #faf7ff,
+            #f3e8ff
+        );
+
+    color:
+        var(--text);
+
+    line-height:
+        1.6;
+
+    overflow-x:
+        hidden;
+
+    transition:
+        background .25s ease,
+        color .25s ease;
+}
+
+
+/* =====================================================
+   DARK MODE
+===================================================== */
+
+body.dark {
+
+    --background:
+        #12091d;
+
+    --card:
+        #21122f;
+
+    --text:
+        #ffffff;
+
+    --muted:
+        #d9cce5;
+
+    --border:
+        #563574;
+
+    background:
+        linear-gradient(
+            180deg,
+            #12091d,
+            #1e0f2d
         );
 }
 
-.hero-content {
-    position: relative;
-    z-index: 2;
-    max-width: 1000px;
-    padding: 30px;
+
+body.dark nav {
+
+    background:
+        rgba(24,10,39,.98);
 }
 
-/* No logo inside hero.
-   The logo is ONLY in the header. */
 
-.badge {
-    display: inline-block;
+body.dark .nav-links a {
 
-    padding: 10px 20px;
-    border-radius: 30px;
-
-    border: 1px solid rgba(255,255,255,.4);
-
-    background: rgba(255,255,255,.12);
-
-    margin-bottom: 20px;
-    font-weight: bold;
-
-    color: var(--green);
+    color:
+        white;
 }
 
-.hero h1 {
-    font-size: clamp(70px, 13vw, 150px);
 
-    line-height: .9;
-    font-weight: 1000;
-    letter-spacing: 8px;
+body.dark .card,
+body.dark .stat,
+body.dark .service-card,
+body.dark .owner-card,
+body.dark .gallery-card,
+body.dark .game,
+body.dark .contact {
+
+    background:
+        #21122f;
+}
+
+
+body.dark .games {
+
+    background:
+        #1e0f2d;
+}
+
+
+body.dark .join {
+
+    background:
+        #241234;
+}
+
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+nav {
+
+    position:
+        sticky;
+
+    top:
+        0;
+
+    z-index:
+        10000;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        15px;
+
+    padding:
+        10px 22px;
+
+    background:
+        rgba(255,255,255,.98);
+
+    box-shadow:
+        0 5px 25px
+        rgba(0,0,0,.12);
+}
+
+
+.logo {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        9px;
+
+    color:
+        var(--purple);
+
+    text-decoration:
+        none;
+
+    font-size:
+        25px;
+
+    font-weight:
+        900;
+
+    white-space:
+        nowrap;
+}
+
+
+.logo img {
+
+    width:
+        48px;
+
+    height:
+        48px;
+
+    display:
+        block;
+
+    object-fit:
+        contain;
+}
+
+
+.nav-links {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        9px;
+
+    flex-wrap:
+        wrap;
+}
+
+
+.nav-links a {
+
+    color:
+        var(--text);
+
+    text-decoration:
+        none;
+
+    font-size:
+        12px;
+
+    font-weight:
+        800;
+
+    transition:
+        .2s;
+}
+
+
+.nav-links a:hover {
+
+    color:
+        var(--purple);
+}
+
+
+.nav-controls {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        6px;
+}
+
+
+.nav-btn {
+
+    border:
+        none;
+
+    border-radius:
+        20px;
+
+    padding:
+        8px 11px;
 
     background:
         linear-gradient(
-            90deg,
-            #ffffff,
-            var(--cyan),
-            var(--green),
-            #ffffff,
+            135deg,
+            var(--purple),
             var(--pink)
         );
 
-    background-size: 300%;
+    color:
+        white;
 
-    -webkit-background-clip: text;
-    color: transparent;
+    cursor:
+        pointer;
 
-    animation: gradientMove 5s infinite linear;
+    font-weight:
+        800;
+
+    transition:
+        .2s;
 }
 
-@keyframes gradientMove {
-    0% {
-        background-position: 0%;
-    }
 
-    100% {
-        background-position: 300%;
-    }
+.nav-btn:hover {
+
+    transform:
+        translateY(-2px);
 }
+
+
+/* =====================================================
+   HERO
+===================================================== */
+
+.hero {
+
+    min-height:
+        700px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    text-align:
+        center;
+
+    padding:
+        80px 20px;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2e1065,
+            #6d28d9,
+            #7c3aed,
+            #581c87
+        );
+}
+
+
+.hero-content {
+
+    max-width:
+        1050px;
+}
+
+
+.badge {
+
+    display:
+        inline-block;
+
+    padding:
+        11px 20px;
+
+    margin-bottom:
+        22px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.35);
+
+    border-radius:
+        30px;
+
+    background:
+        rgba(255,255,255,.12);
+
+    font-weight:
+        800;
+}
+
+
+.hero h1 {
+
+    font-size:
+        clamp(
+            76px,
+            14vw,
+            155px
+        );
+
+    line-height:
+        .85;
+
+    letter-spacing:
+        8px;
+
+    font-weight:
+        1000;
+}
+
 
 .hero h2 {
-    font-size: clamp(20px, 4vw, 38px);
-    color: var(--yellow);
-    margin: 25px 0;
+
+    font-size:
+        clamp(
+            22px,
+            4vw,
+            42px
+        );
+
+    margin:
+        25px 0 15px;
 }
+
 
 .hero p {
-    max-width: 800px;
-    margin: auto;
-    font-size: 20px;
+
+    max-width:
+        800px;
+
+    margin:
+        auto;
+
+    font-size:
+        19px;
+
+    color:
+        #f4edff;
 }
+
 
 .button {
-    display: inline-block;
 
-    margin: 25px 5px 0;
+    display:
+        inline-block;
 
-    padding: 14px 25px;
+    margin:
+        25px 7px 0;
 
-    border-radius: 35px;
+    padding:
+        13px 22px;
+
+    border-radius:
+        30px;
 
     background:
-        linear-gradient(
-            135deg,
-            var(--green),
-            var(--cyan)
-        );
+        white;
 
-    color: #182035;
+    color:
+        var(--purple);
 
-    text-decoration: none;
+    text-decoration:
+        none;
 
-    font-weight: 900;
+    font-weight:
+        900;
 
-    transition: .25s;
+    transition:
+        .2s;
 }
+
 
 .button:hover {
-    transform: translateY(-5px) scale(1.04);
+
+    transform:
+        translateY(-3px);
 }
 
-.button.pink {
+
+.button.alt {
+
     background:
-        linear-gradient(
-            135deg,
-            var(--pink),
-            var(--violet)
-        );
+        var(--purple-light);
 
-    color: white;
+    color:
+        white;
 }
 
-/* =========================
-   BLOBS
-========================= */
 
-.blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(5px);
-    opacity: .35;
-
-    animation:
-        blobMove 10s infinite alternate ease-in-out;
-}
-
-.blob.one {
-    width: 220px;
-    height: 220px;
-    background: var(--cyan);
-    top: 10%;
-    left: 5%;
-}
-
-.blob.two {
-    width: 300px;
-    height: 300px;
-    background: var(--pink);
-    right: 4%;
-    top: 25%;
-}
-
-.blob.three {
-    width: 180px;
-    height: 180px;
-    background: var(--green);
-    bottom: 5%;
-    left: 30%;
-}
-
-@keyframes blobMove {
-
-    0% {
-        transform: translate(0,0) scale(1);
-    }
-
-    50% {
-        transform: translate(70px,-40px) scale(1.2);
-    }
-
-    100% {
-        transform: translate(-40px,60px) scale(.9);
-    }
-}
-
-/* =========================
+/* =====================================================
    SECTIONS
-========================= */
+===================================================== */
 
 .section {
-    max-width: 1200px;
-    margin: auto;
-    padding: 90px 25px;
-}
 
-/* Center-align the JHR website content */
-.section, .color-section, .games, footer, header {
-    text-align: center;
-}
-.cards, .mission, .post-grid {
-    justify-items: center;
-}
-.post-card {
-    text-align: center;
-}
-.post-body {
-    width: 100%;
-}
-.post-type {
-    display: inline-block;
-    margin-bottom: 8px;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 1.2px;
-    color: var(--purple);
+    max-width:
+        1180px;
+
+    margin:
+        0 auto;
+
+    padding:
+        85px 22px;
 }
 
 
 .title {
-    text-align: center;
 
-    font-size: clamp(32px,5vw,48px);
+    text-align:
+        center;
 
-    margin-bottom: 15px;
-
-    background:
-        linear-gradient(
-            90deg,
-            var(--purple),
-            var(--pink),
-            #00a9c7
+    font-size:
+        clamp(
+            32px,
+            5vw,
+            48px
         );
 
-    -webkit-background-clip: text;
-    color: transparent;
+    margin-bottom:
+        12px;
+
+    color:
+        var(--purple-dark);
 }
+
+
+body.dark .title {
+
+    color:
+        white;
+}
+
 
 .subtitle {
-    max-width: 850px;
 
-    margin: 0 auto 45px;
+    max-width:
+        800px;
 
-    text-align: center;
+    margin:
+        0 auto 42px;
 
-    color: var(--muted);
+    text-align:
+        center;
 
-    font-size: 18px;
+    color:
+        var(--muted);
+
+    font-size:
+        18px;
 }
 
-/* =========================
+
+/* =====================================================
    CARDS
-========================= */
+===================================================== */
 
 .cards {
-    display: grid;
+
+    display:
+        grid;
 
     grid-template-columns:
         repeat(
             auto-fit,
-            minmax(240px,1fr)
+            minmax(230px,1fr)
         );
 
-    gap: 25px;
+    gap:
+        20px;
 }
+
 
 .card {
-    background: var(--card);
 
-    padding: 32px;
+    background:
+        var(--card);
 
-    border-radius: 22px;
+    padding:
+        28px;
+
+    border-radius:
+        22px;
 
     box-shadow:
-        0 10px 30px rgba(60,20,90,.12);
+        var(--shadow);
 
     border-top:
-        5px solid var(--purple);
-
-    transition: .3s;
+        5px solid
+        var(--purple);
 }
 
-.card:hover {
-    transform: translateY(-10px);
-
-    box-shadow:
-        0 20px 45px rgba(100,30,160,.2);
-}
 
 .card h3 {
-    color: var(--purple);
-    margin-bottom: 10px;
+
+    color:
+        var(--purple);
+
+    margin-bottom:
+        10px;
 }
 
-/* =========================
+
+.card p {
+
+    color:
+        var(--muted);
+}
+
+
+/* =====================================================
    MISSION
-========================= */
+===================================================== */
 
 .color-section {
-    padding: 90px 25px;
-    color: white;
+
+    padding:
+        85px 22px;
+
+    color:
+        white;
 
     background:
         linear-gradient(
             135deg,
-            #28093e,
-            #7027d9,
-            #a52b92
+            #4c1d95,
+            #7c3aed
         );
 }
 
-.mission {
-    max-width: 1200px;
-    margin: auto;
 
-    display: grid;
+.color-section .title {
+
+    color:
+        white;
+}
+
+
+.mission {
+
+    max-width:
+        1180px;
+
+    margin:
+        auto;
+
+    display:
+        grid;
 
     grid-template-columns:
         repeat(
@@ -770,265 +1359,642 @@ body.dark .logo img {
             minmax(220px,1fr)
         );
 
-    gap: 25px;
+    gap:
+        20px;
 }
 
-.mission-card {
-    padding: 35px;
-    text-align: center;
 
-    border-radius: 25px;
+.mission-card {
+
+    padding:
+        28px;
+
+    border-radius:
+        22px;
 
     background:
         rgba(255,255,255,.1);
 
     border:
-        1px solid rgba(255,255,255,.2);
+        1px solid
+        rgba(255,255,255,.2);
 
-    backdrop-filter: blur(10px);
-
-    transition: .3s;
+    text-align:
+        center;
 }
 
-.mission-card:hover {
-    transform:
-        translateY(-10px)
-        scale(1.03);
-}
 
 .mission-icon {
-    font-size: 55px;
-    margin-bottom: 15px;
+
+    font-size:
+        42px;
+
+    margin-bottom:
+        10px;
 }
 
-/* =========================
+
+.mission-card p {
+
+    color:
+        #eee7ff;
+}
+
+
+/* =====================================================
    STATS
-========================= */
+===================================================== */
 
 .stats {
-    display: grid;
+
+    display:
+        grid;
 
     grid-template-columns:
         repeat(
             auto-fit,
-            minmax(180px,1fr)
+            minmax(170px,1fr)
         );
 
-    gap: 20px;
+    gap:
+        20px;
 }
+
 
 .stat {
-    text-align: center;
 
-    padding: 25px;
+    background:
+        var(--card);
 
-    background: var(--card);
+    padding:
+        28px;
 
-    border-radius: 20px;
+    text-align:
+        center;
+
+    border-radius:
+        22px;
 
     box-shadow:
-        0 8px 25px rgba(50,20,80,.12);
+        var(--shadow);
 }
+
 
 .stat-number {
-    font-size: 45px;
-    font-weight: 1000;
-    color: var(--purple);
+
+    font-size:
+        45px;
+
+    font-weight:
+        1000;
+
+    color:
+        var(--purple);
 }
 
-/* =========================
-   OWNERS
-========================= */
 
-.owners {
-    max-width: 1100px;
-    margin: 40px auto 0;
+/* =====================================================
+   SERVICES
+===================================================== */
 
-    display: grid;
+.services {
+
+    display:
+        grid;
 
     grid-template-columns:
         repeat(
             auto-fit,
-            minmax(300px,1fr)
+            minmax(230px,1fr)
         );
 
-    gap: 30px;
+    gap:
+        20px;
 }
 
-.owner-card {
-    background: var(--card);
 
-    border-radius: 25px;
+.service-card {
 
-    overflow: hidden;
+    background:
+        var(--card);
+
+    padding:
+        30px;
+
+    border-radius:
+        22px;
 
     box-shadow:
-        0 12px 35px rgba(60,20,90,.15);
+        var(--shadow);
 
-    border-top: 5px solid var(--pink);
-
-    transition: .3s;
+    border-top:
+        5px solid
+        var(--purple);
 }
 
-.owner-card:hover {
-    transform: translateY(-8px);
+
+.service-icon {
+
+    font-size:
+        42px;
+
+    margin-bottom:
+        10px;
 }
 
-.owner-photo {
-    width: 100%;
-    height: 350px;
 
-    object-fit: cover;
+.service-card h3 {
 
-    display: block;
+    color:
+        var(--purple);
 
-    background: #eee;
+    margin-bottom:
+        10px;
 }
 
-.owner-info {
-    padding: 28px;
+
+.service-card p {
+
+    color:
+        var(--muted);
 }
 
-.owner-info h3 {
-    color: var(--purple);
-    font-size: 27px;
-    margin-bottom: 5px;
+
+.free {
+
+    display:
+        inline-block;
+
+    margin-top:
+        15px;
+
+    padding:
+        6px 12px;
+
+    border-radius:
+        20px;
+
+    background:
+        var(--purple-soft);
+
+    color:
+        var(--purple);
+
+    font-size:
+        12px;
+
+    font-weight:
+        900;
 }
 
-.owner-role {
-    color: var(--pink);
-    font-weight: bold;
-    margin-bottom: 15px;
+
+/* =====================================================
+   REQUESTED JHR LAYOUT
+===================================================== */
+.mission-subtitle{color:#fff !important}
+.who-are-we-cards{display:flex;justify-content:center}
+.who-we-are-box{width:min(950px,100%);text-align:left}
+.project-mini-grid{justify-content:center;align-items:stretch}
+.project-mini-card{max-width:330px;margin:0 auto;text-align:center}
+.service-center{justify-content:center;align-items:stretch}
+.service-center .service-card{max-width:360px;margin:0 auto;text-align:center}
+.news-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.news-card{background:var(--card);border:1px solid var(--border);border-top:5px solid var(--purple);border-radius:22px;padding:24px;box-shadow:var(--shadow);text-align:left}
+.news-card .news-kind{color:var(--purple);font-weight:900;text-transform:uppercase;font-size:12px;letter-spacing:.06em}
+.news-card h3{color:var(--text);margin:8px 0}
+.news-card p{color:var(--muted);white-space:pre-wrap}
+.news-meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+
+.news-images,.staff-news-images{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0}
+.news-images img,.staff-news-images img{width:100%;height:220px;object-fit:cover;border-radius:14px;border:1px solid var(--border);background:var(--purple-soft)}
+.staff-news-images img{height:180px}
+.gallery-meta-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 15px}
+.gallery-meta-row input,.gallery-meta-row textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--background);color:var(--text);font:inherit}
+.gallery-meta-row textarea{min-height:80px;resize:vertical}
+.gallery-file-name{font-weight:800;color:var(--purple);margin-top:12px}
+@media(max-width:650px){.gallery-meta-row{grid-template-columns:1fr}.news-images img,.staff-news-images img{height:200px}}
+
+
+/* Final requested visual refinements */
+.hero-content { text-align: center; }
+.hero-content .hero-message {
+    text-align:center;
+    max-width:1000px;
+    margin:18px auto 0;
+    white-space:pre-line;
+}
+.hero-organization-title {
+    text-align:center;
+    color:#ffffff;
+    font-size:clamp(24px,3.2vw,42px);
+    font-weight:900;
+    line-height:1.15;
+    margin:12px 0 18px;
 }
 
-/* =========================
-   JHR POSTS / GALLERY / NEWS
-========================= */
-
-.post-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 25px;
-}
-
-.post-card {
-    background: var(--card);
-    border-radius: 25px;
-    overflow: hidden;
-    box-shadow: 0 12px 35px rgba(60,20,90,.14);
-    border-top: 5px solid var(--purple);
-    transition: .3s;
-}
-
-.post-card:hover {
-    transform: translateY(-7px);
-}
-
-.post-image {
-    width: 100%;
-    height: 260px;
-    object-fit: cover;
-    display: block;
-    background: #eee;
-}
-
-.post-no-image {
-    height: 260px;
+.who-are-we-cards {
     display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.who-we-are-box {
+    width: min(950px, 100%);
+    margin: 0 auto;
+    text-align: center;
+}
+.who-we-are-box p {
+    text-align: center;
+    font-weight: 700;
+    text-indent: 2em;
+    line-height: 1.9;
+    margin: 0;
+}
+.who-we-are-box p + p {
+    margin-top: 32px;
+}
+.mission-white { color: #fff !important; text-align: center; }
+.project-mini-grid { justify-content: center; align-items: stretch; }
+.project-mini-card { max-width: 330px; margin: 0 auto; text-align: center; }
+.project-mini-card p { text-align: center; }
+.service-center { justify-content: center; align-items: stretch; }
+.service-center .service-card { max-width: 360px; margin: 0 auto; text-align: center; }
+.service-center .service-card p { text-align: center; white-space: pre-line; }
+.gallery-grid { justify-items: center; }
+.gallery-card { text-align: center; }
+.gallery-caption { text-align: center; }
+.gallery-caption h3, .gallery-caption p { text-align: center; }
+.news-grid { text-align: center; }
+
+/* =====================================================
+   GALLERY
+===================================================== */
+
+.gallery-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(0,1fr)
+        );
+
+    gap:
+        24px;
+}
+
+
+.gallery-card {
+
+    overflow:
+        hidden;
+
+    background:
+        var(--card);
+
+    border-radius:
+        22px;
+
+    box-shadow:
+        var(--shadow);
+
+    border:
+        1px solid
+        var(--border);
+}
+
+
+.gallery-card img {
+
+    display:
+        block;
+
+    width:
+        100%;
+
+    height:
+        300px;
+
+    object-fit:
+        cover;
+
+    background:
+        var(--purple-soft);
+
+    /*
+       Faster image loading.
+    */
+    content-visibility:
+        auto;
+}
+
+.gallery-image-link {
+    display: block;
+    position: relative;
+    background: var(--purple-soft);
+    text-decoration: none;
+}
+
+.gallery-image-link img {
+    transition: transform .2s ease, opacity .2s ease;
+}
+
+.gallery-image-link:hover img {
+    transform: scale(1.02);
+}
+
+.gallery-image-error {
+    display: none;
+    min-height: 300px;
+    padding: 30px;
     align-items: center;
     justify-content: center;
-    font-size: 60px;
-    background: linear-gradient(135deg,#ead7ff,#d9faff);
+    color: var(--muted);
+    text-align: center;
 }
 
-.post-body {
+
+.gallery-caption {
+
+    padding:
+        20px;
+}
+
+
+.gallery-caption h3 {
+
+    color:
+        var(--purple);
+
+    margin-bottom:
+        6px;
+}
+
+
+.gallery-caption p {
+
+    color:
+        var(--muted);
+}
+
+
+/* =====================================================
+   FOUNDERS
+===================================================== */
+
+.owners {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            2,
+            minmax(0,1fr)
+        );
+
+    gap:
+        28px;
+}
+
+
+.owner-card {
+
+    overflow:
+        hidden;
+
+    background:
+        var(--card);
+
+    border-radius:
+        22px;
+
+    box-shadow:
+        var(--shadow);
+
+    border-top:
+        5px solid
+        var(--pink);
+}
+
+
+.owner-photo {
+
+    width:
+        100%;
+
+    height:
+        430px;
+
+    object-fit:
+        cover;
+
+    object-position:
+        center top;
+
+    display:
+        block;
+
+    background:
+        var(--purple-soft);
+}
+
+
+.owner-info {
+
+    padding:
+        25px;
+}
+
+
+.owner-info h3 {
+
+    color:
+        var(--purple);
+
+    font-size:
+        24px;
+
+    margin-bottom:
+        5px;
+}
+
+
+.owner-role {
+
+    color:
+        var(--pink);
+
+    font-weight:
+        900;
+
+    margin-bottom:
+        12px;
+}
+
+
+.owner-info p {
+
+    color:
+        var(--muted);
+}
+
+
+
+.coordinator-section {
+    margin-top: 55px;
+    text-align: center;
+}
+
+.coordinator-section-title {
+    color: var(--purple);
+    font-size: clamp(28px, 4vw, 40px);
+    margin: 0 0 10px;
+}
+
+.coordinator-grid {
+    max-width: 1050px;
+    margin: 25px auto 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+}
+
+.coordinator-card {
+    overflow: hidden;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border-top: 5px solid var(--purple);
+    text-align: center;
+}
+
+.coordinator-photo {
+    width: 100%;
+    height: 430px;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    background: var(--purple-soft);
+}
+
+.coordinator-info {
     padding: 25px;
 }
 
-.post-body h3 {
+.coordinator-info h3 {
     color: var(--purple);
-    margin-bottom: 7px;
-    font-size: 25px;
+    font-size: 24px;
+    margin: 0 0 8px;
 }
 
-.post-date {
+.coordinator-role {
+    color: var(--pink);
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.coordinator-location {
     color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 12px;
+    font-weight: 700;
+    margin: 0;
 }
 
-.empty-posts {
-    text-align: center;
-    padding: 30px;
-    background: var(--card);
-    border-radius: 20px;
-    color: var(--muted);
+@media (max-width: 760px) {
+    .coordinator-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-/* =========================
+/* =====================================================
    GAMES
-========================= */
+===================================================== */
 
 .games {
-    padding: 90px 25px;
+
+    padding:
+        85px 22px;
 
     background:
-        radial-gradient(
-            circle at top left,
-            #d7b5ff,
-            transparent 35%
-        ),
-        radial-gradient(
-            circle at bottom right,
-            #8df7ff,
-            transparent 30%
-        ),
-        #eee1f9;
+        var(--purple-soft);
 }
 
-.game-grid {
-    max-width: 1200px;
-    margin: auto;
 
-    display: grid;
+.game-grid {
+
+    max-width:
+        1200px;
+
+    margin:
+        auto;
+
+    display:
+        grid;
 
     grid-template-columns:
         repeat(
-            auto-fit,
-            minmax(280px,1fr)
+            4,
+            minmax(0,1fr)
         );
 
-    gap: 25px;
+    gap:
+        20px;
 }
+
 
 .game {
-    background: var(--card);
 
-    padding: 30px;
+    background:
+        var(--card);
 
-    text-align: center;
-
-    border-radius: 25px;
+    border-radius:
+        22px;
 
     box-shadow:
-        0 10px 30px rgba(60,20,90,.15);
+        var(--shadow);
+
+    padding:
+        25px;
+
+    text-align:
+        center;
 }
+
 
 .game h3 {
-    color: var(--purple);
-    margin-bottom: 12px;
+
+    color:
+        var(--purple);
+
+    margin-bottom:
+        8px;
 }
+
+
+.game p {
+
+    color:
+        var(--muted);
+
+    margin-bottom:
+        10px;
+}
+
 
 .game button {
-    border: none;
 
-    padding: 12px 16px;
+    margin:
+        5px 3px;
 
-    margin: 5px;
+    padding:
+        9px 13px;
 
-    border-radius: 25px;
+    border:
+        0;
 
-    cursor: pointer;
+    border-radius:
+        12px;
 
     background:
         linear-gradient(
@@ -1037,583 +2003,1023 @@ body.dark .logo img {
             var(--pink)
         );
 
-    color: white;
+    color:
+        white;
 
-    font-weight: bold;
+    cursor:
+        pointer;
+
+    font-weight:
+        800;
 }
 
-.game-result {
-    margin-top: 15px;
-    min-height: 30px;
 
-    color: var(--purple);
-    font-weight: bold;
+.result {
+
+    min-height:
+        28px;
+
+    margin-top:
+        10px;
+
+    color:
+        var(--purple);
+
+    font-weight:
+        900;
 }
 
-/* =========================
+
+/* =====================================================
    CONTACT
-========================= */
+===================================================== */
 
 .contact {
-    max-width: 850px;
-    margin: auto;
 
-    padding: 45px;
+    max-width:
+        900px;
 
-    text-align: center;
+    margin:
+        auto;
 
-    border-radius: 30px;
+    padding:
+        40px 25px;
 
-    background: var(--card);
+    background:
+        var(--card);
+
+    border-radius:
+        25px;
+
+    text-align:
+        center;
 
     box-shadow:
-        0 10px 35px rgba(60,20,90,.15);
+        var(--shadow);
 }
+
 
 .contact h2 {
-    color: var(--purple);
-    font-size: 35px;
+
+    color:
+        var(--purple);
+
+    font-size:
+        38px;
 }
 
-.contact a {
-    color: var(--purple);
-    font-weight: bold;
+
+.contact p {
+
+    color:
+        var(--muted);
+
+    margin:
+        8px 0;
 }
 
-/* =========================
+
+/* =====================================================
+   JOURNEY
+===================================================== */
+
+.join {
+
+    max-width:
+        900px;
+
+    margin:
+        30px auto 0;
+
+    padding:
+        35px 20px;
+
+    text-align:
+        center;
+
+    border-radius:
+        25px;
+
+    background:
+        var(--purple-soft);
+
+    box-shadow:
+        var(--shadow);
+}
+
+
+.join h2 {
+
+    color:
+        var(--purple);
+
+    font-size:
+        38px;
+
+    margin-bottom:
+        8px;
+}
+
+
+.join p {
+
+    color:
+        var(--muted);
+
+    margin:
+        5px 0;
+}
+
+
+/* =====================================================
+   VIEWER COUNTER
+===================================================== */
+
+.viewer-counter {
+
+    display:
+        inline-block;
+
+    margin-top:
+        18px;
+
+    padding:
+        10px 18px;
+
+    border-radius:
+        25px;
+
+    background:
+        var(--purple);
+
+    color:
+        white;
+
+    font-size:
+        16px;
+
+    font-weight:
+        900;
+}
+
+
+.viewer-counter strong {
+
+    color:
+        #e9d5ff;
+
+    font-size:
+        21px;
+}
+
+
+/* =====================================================
    FOOTER
-========================= */
+===================================================== */
 
 footer {
-    padding: 55px 20px;
 
-    text-align: center;
+    margin-top:
+        50px;
 
-    color: white;
+    padding:
+        30px 20px;
+
+    text-align:
+        center;
 
     background:
-        linear-gradient(
-            135deg,
-            #1c0829,
-            #3c1258
-        );
+        var(--purple-deep);
+
+    color:
+        #eee7ff;
 }
+
 
 .footer-logo {
-    font-size: 35px;
-    font-weight: 1000;
-    color: var(--green);
+
+    font-size:
+        36px;
+
+    font-weight:
+        1000;
+
+    color:
+        #e9d5ff;
 }
 
-.social {
-    display: inline-block;
 
-    margin-top: 20px;
-
-    padding: 12px 22px;
-
-    border-radius: 30px;
-
-    background: #1877f2;
-
-    color: white;
-
-    text-decoration: none;
-
-    font-weight: bold;
-}
-
-/* =========================
-   MUSIC
-========================= */
-
-.music-control {
-    position: fixed;
-
-    right: 20px;
-    bottom: 20px;
-
-    z-index: 99999;
-
-    width: 58px;
-    height: 58px;
-
-    border: none;
-
-    border-radius: 50%;
-
-    cursor: pointer;
-
-    font-size: 23px;
-
-    color: white;
-
-    background:
-        linear-gradient(
-            135deg,
-            var(--purple),
-            var(--pink)
-        );
-}
-
-/* =========================
-   TOP
-========================= */
+/* =====================================================
+   TOP BUTTON
+===================================================== */
 
 .top {
-    position: fixed;
 
-    bottom: 90px;
-    right: 25px;
+    position:
+        fixed;
 
-    width: 45px;
-    height: 45px;
+    right:
+        20px;
 
-    border: none;
+    bottom:
+        20px;
 
-    border-radius: 50%;
+    display:
+        none;
 
-    background: var(--cyan);
+    width:
+        48px;
 
-    color: #17203a;
+    height:
+        48px;
 
-    font-size: 20px;
+    border:
+        none;
 
-    cursor: pointer;
+    border-radius:
+        50%;
 
-    display: none;
+    background:
+        var(--purple);
 
-    z-index: 999;
+    color:
+        white;
+
+    font-size:
+        20px;
+
+    cursor:
+        pointer;
+
+    z-index:
+        9999;
 }
 
-/* =========================
+
+/* =====================================================
    MOBILE
-========================= */
+===================================================== */
 
-@media(max-width:800px) {
+@media(max-width:1100px) {
 
-    nav {
-        flex-direction: column;
-        padding: 15px;
+    .gallery-grid {
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0,1fr)
+            );
     }
 
+    .game-grid {
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0,1fr)
+            );
+    }
+
+}
+
+
+@media(max-width:850px) {
+
+    nav {
+
+        flex-direction:
+            column;
+    }
+
+    .owners {
+
+        grid-template-columns:
+            1fr;
+    }
+
+}
+
+
+@media(max-width:650px) {
+
     .nav-links {
-        gap: 9px;
+
+        gap:
+            6px;
     }
 
     .nav-links a {
-        font-size: 11px;
+
+        font-size:
+            10px;
     }
 
-    .hero {
-        min-height: 650px;
-    }
+    .gallery-grid,
+    .cards,
+    .mission,
+    .services,
+    .stats,
+    .game-grid {
 
-    .hero p {
-        font-size: 17px;
+        grid-template-columns:
+            1fr;
     }
 
     .owner-photo {
-        height: 300px;
+
+        height:
+            360px;
     }
+
+    .gallery-card img {
+
+        height:
+            300px;
+    }
+
+    .title {
+
+        font-size:
+            34px;
+    }
+
+    .hero {
+
+        min-height:
+            620px;
+    }
+
+}
+
+
+/* =====================================================
+   LOGIN / REGISTER / UPLOAD
+===================================================== */
+.auth-box {
+    max-width: 520px;
+    margin: 35px auto;
+    padding: 30px;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border-top: 5px solid var(--purple);
+}
+.auth-box input[type="text"],
+.auth-box input[type="password"],
+.auth-box input[type="file"] {
+    width: 100%;
+    padding: 13px;
+    margin: 8px 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+    color: var(--text);
+}
+.auth-submit, .upload-submit {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg,var(--purple),var(--pink));
+    color: white;
+    cursor: pointer;
+    font-weight: 800;
+}
+.auth-message {
+    padding: 10px 14px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    background: var(--purple-soft);
+    color: var(--purple);
+    font-weight: 700;
+}
+.gallery-upload {
+    margin-bottom: 30px;
+}
+.gallery-upload small {
+    color: var(--muted);
+}
+.gallery-card img {
+    object-fit: cover;
 }
 
 </style>
+
 </head>
+
 
 <body>
 
-<!-- =========================
-     HEADER
-========================= -->
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div style="position:fixed;top:85px;right:20px;z-index:20000;max-width:360px;">
+{% for message in messages %}<div class="auth-message">{{ message }}</div>{% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+
+<!-- =====================================================
+     NAVIGATION
+===================================================== -->
 
 <nav>
 
-<div class="logo">
 
-<img
-src="{{ url_for('static', filename='OfficialLogo.png') }}"
-alt="JHR Logo"
+<a
+    class="logo"
+    href="#home"
 >
 
-<span>JHR</span>
+    <img
+        src="/media/OfficialLogo.png"
+        alt="JHR Logo"
+        width="48"
+        height="48"
+        fetchpriority="high"
+        decoding="async"
+    >
 
-</div>
+    <span>
+        JHR
+    </span>
+
+</a>
+
 
 <div class="nav-links">
 
-<a href="#home">Home</a>
-<a href="#about">About</a>
-<a href="#mission">Mission</a>
-<a href="#projects">Projects</a>
-<a href="#experience">Experience</a>
-<a href="#founders">Founders</a>
-<a href="#gallery">Gallery</a>
-<a href="#news">News & Announcements</a>
-<a href="#games">Games</a>
-<a href="#contact">Contact</a>
-<a href="{{ url_for('staff_login') }}">Staff</a>
+
+<a
+    href="#home"
+    data-en="Home"
+    data-fil="Home"
+>
+    Home
+</a>
+
+
+<a
+    href="#about"
+    data-en="About Us"
+    data-fil="Tungkol sa Amin"
+>
+    About Us
+</a>
+
+
+<a
+    href="#mission"
+    data-en="Mission"
+    data-fil="Misyon"
+>
+    Mission
+</a>
+
+
+<a
+    href="#projects"
+    data-en="Projects"
+    data-fil="Mga Proyekto"
+>
+    Projects
+</a>
+
+
+<a
+    href="#services"
+    data-en="Services"
+    data-fil="Serbisyo"
+>
+    Services
+</a>
+
+
+<a
+    href="#gallery"
+    data-en="Gallery"
+    data-fil="Gallery"
+>
+    Gallery
+</a>
+
+
+<a
+    href="#news"
+    data-en="News"
+    data-fil="Balita"
+>
+    News
+</a>
+
+
+<a
+    href="#founders"
+    data-en="Founders"
+    data-fil="Mga Tagapagtatag"
+>
+    Founders
+</a>
+
+
+<a
+    href="#games"
+    data-en="Games"
+    data-fil="Mga Laro"
+>
+    Games
+</a>
+
+
+<a
+    href="#contact"
+    data-en="Contact"
+    data-fil="Kontak"
+>
+    Contact
+</a>
+
+
+</div>
+
+
+<div class="nav-controls">
+
 
 <button
-class="language-button"
-onclick="toggleLanguage()"
-id="languageButton"
+    class="nav-btn"
+    id="langBtn"
+    onclick="toggleLanguage()"
 >
-🇵🇭 FIL
+    🇵🇭 FIL
 </button>
 
+
 <button
-class="nav-button"
-onclick="toggleDarkMode()"
+    class="nav-btn"
+    id="themeBtn"
+    onclick="toggleTheme()"
 >
-🌙
+    🌙
 </button>
+
+{% if session.get("staff_id") %}
+<a class="nav-btn" href="{{ url_for('staff_dashboard') }}" style="text-decoration:none;">👨‍💼 Staff</a>
+<a class="nav-btn" href="{{ url_for('logout') }}" style="text-decoration:none;">🚪 Logout</a>
+{% else %}
+<a class="nav-btn" href="{{ url_for('login') }}" style="text-decoration:none;">🔐 Staff Login</a>
+{% endif %}
+
 
 </div>
 
 </nav>
 
 
-<!-- =========================
+
+<!-- =====================================================
      HERO
-========================= -->
+===================================================== -->
 
-<section class="hero" id="home">
-
-<div class="blob one"></div>
-<div class="blob two"></div>
-<div class="blob three"></div>
+<section
+    class="hero"
+    id="home"
+>
 
 <div class="hero-content">
 
+
 <div
-class="badge"
-data-en="TECHNOLOGY • EDUCATION • INNOVATION"
-data-fil="TEKNOLOHIYA • EDUKASYON • INOBASYON"
+    class="badge"
+    data-en="TECHNOLOGY • EDUCATION • INNOVATION • COMMUNITY"
+    data-fil="TEKNOLOHIYA • EDUKASYON • INOBASYON • KOMUNIDAD"
 >
-TECHNOLOGY • EDUCATION • INNOVATION
+
+    TECHNOLOGY • EDUCATION • INNOVATION • COMMUNITY
+
 </div>
 
-<h1>JHR</h1>
 
-<h2
-data-en="EMPOWERMENT THROUGH TECHNOLOGY"
-data-fil="PAGPAPALAKAS SA PAMAMAGITAN NG TEKNOLOHIYA"
->
-EMPOWERMENT THROUGH TECHNOLOGY
+<h1>
+    JHR
+</h1>
+
+<h2 class="hero-organization-title">
+    Empowerment Through Technology
 </h2>
 
-<p
-data-en="Turning technology, creativity and learning into opportunities for people and communities."
-data-fil="Ginagamit namin ang teknolohiya, pagkamalikhain at pagkatuto upang lumikha ng mga oportunidad para sa mga tao at komunidad."
->
-Turning technology, creativity and learning into opportunities for people and communities.
+
+
+
+<p class="hero-message" data-en="We are turning technology, creativity, and learning into opportunities
+for people and communities." data-fil="Ginagawa naming mga oportunidad para sa mga tao at komunidad ang teknolohiya, pagkamalikhain, at pagkatuto.">
+We are turning technology, creativity, and learning into opportunities
+for people and communities.
 </p>
 
-<a class="button" href="#about">
-✨ Explore JHR
-</a>
 
-<a class="button pink" href="#games">
-🎮 Play Games
-</a>
+
+
 
 </div>
 
 </section>
 
 
-<!-- =========================
+
+<!-- =====================================================
      ABOUT
-========================= -->
+===================================================== -->
 
 <section class="section" id="about">
-
-<h2
-class="title"
-data-en="What is JHR?"
-data-fil="Ano ang JHR?"
->
-What is JHR?
-</h2>
-
-<p
-class="subtitle"
-data-en="JHR — Empowerment Through Technology."
-data-fil="JHR — Pagpapalakas sa Pamamagitan ng Teknolohiya."
->
-JHR — Empowerment Through Technology.
+<h2 class="title" data-en="Who Are We?" data-fil="Sino Kami?">Who Are We?</h2>
+<div class="cards who-are-we-cards">
+<div class="card who-we-are-box">
+<p class="who-description" data-en="JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology." data-fil="Ang JHR: Empowerment Through Technology ay itinatag at inayos nina Hugo at Julia, na kapwa masigasig sa robotics, artificial intelligence, coding, at community service. Matapos maagang makilala ang kahanga-hangang mundo ng robotics at ipagpatuloy ang kanilang paglalakbay sa pagkamalikhain at inobasyon, naniniwala silang bawat bata ay dapat magkaroon ng pagkakataong matuto, magsaliksik, at maranasan ang mga posibilidad ng robotics, coding, at teknolohiya.">
+JHR: Empowerment Through Technology was founded and organized by Hugo and Julia, who are both passionate about robotics, artificial intelligence, coding, and community service. Having been exposed to the wonder of robotics at an early age and continuing their journey of creativity and innovation, they firmly believe that every child should have the opportunity to learn, explore, and experience the possibilities of robotics, coding, and technology.
 </p>
-
-<div class="cards">
-
-<div class="card">
-
-<h3>💻 Technology</h3>
-
-<p>
-We explore technology as a tool for creativity,
-learning and opportunity.
+<p class="who-description" data-en="Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities." data-fil="Sa pamamagitan ng JHR, nais nilang hikayatin ang mga bata na gamitin ang kanilang pagkamalikhain at imahinasyon at gawing makabuluhang inobasyon ang kanilang mga ideya upang matugunan ang mga tunay na problema sa buhay. Sa pagbibigay sa mga bata ng kaalaman at teknolohiya, hinahangad ng JHR ang isang henerasyon ng mga batang innovator na kayang gawing realidad ang imahinasyon, gamitin ang kanilang mga kasanayan upang magkaroon ng positibong pagbabago sa buhay ng iba, at makatulong sa kapakanan ng kanilang mga komunidad.">
+Through JHR, they hope to inspire children to harness their creativity and imagination and transform their ideas into meaningful innovations that address real-life problems. By empowering children with knowledge and technology, JHR envisions a generation of young innovators who can turn imagination into reality, use their skills to make a positive difference in the lives of others, and contribute to the well-being of their communities.
 </p>
-
 </div>
-
-<div class="card">
-
-<h3>📚 Learning</h3>
-
-<p>
-Learning new skills helps young people turn ideas
-into real projects.
-</p>
-
 </div>
-
-<div class="card">
-
-<h3>🌱 Community</h3>
-
-<p>
-Technology can help communities connect,
-learn and grow.
-</p>
-
-</div>
-
-<div class="card">
-
-<h3>💡 Ideas</h3>
-
-<p>
-Every big project starts with an idea and the
-courage to try.
-</p>
-
-</div>
-
-</div>
-
 </section>
 
-
-<!-- =========================
+<!-- =====================================================
      MISSION
-========================= -->
+===================================================== -->
 
 <section class="color-section" id="mission">
-
-<h2
-class="title"
-style="color:white"
->
-Our Mission
-</h2>
-
-<p
-class="subtitle"
-style="color:#eadcff"
->
-Empowerment through technology, knowledge and creativity.
+<h2 class="title" data-en="Our Mission" data-fil="Aming Misyon">Our Mission</h2>
+<p class="subtitle mission-subtitle mission-white" data-en="We are empowering through technology, creativity, and innovation." data-fil="Pinapalakas namin ang mga tao sa pamamagitan ng teknolohiya, pagkamalikhain, at inobasyon.">
+We are empowering through technology, creativity, and innovation.
 </p>
-
 <div class="mission">
-
-<div class="mission-card">
-
-<div class="mission-icon">💻</div>
-
-<h3>Technology</h3>
-
-<p>
-Promote creative and responsible technology use.
-</p>
-
+<div class="mission-card"><div class="mission-icon">💻</div><h3 data-en="Technology" data-fil="Teknolohiya">Technology</h3><p data-en="Promote creative and responsible technology use." data-fil="Itaguyod ang malikhain at responsableng paggamit ng teknolohiya.">Promote creative and responsible technology use.</p></div>
+<div class="mission-card"><div class="mission-icon">🎓</div><h3 data-en="Education" data-fil="Edukasyon">Education</h3><p data-en="Encourage people, particularly children, to learn digital and technology skills." data-fil="Hikayatin ang mga tao, lalo na ang mga bata, na matuto ng mga kasanayang digital at teknolohiya.">Encourage people, particularly children, to learn digital and technology skills.</p></div>
+<div class="mission-card"><div class="mission-icon">🌍</div><h3 data-en="Community" data-fil="Komunidad">Community</h3><p data-en="Explore ways technology can create positive community impact." data-fil="Tuklasin kung paano makalilikha ang teknolohiya ng positibong epekto sa komunidad.">Explore ways technology can create positive community impact.</p></div>
+<div class="mission-card"><div class="mission-icon">🚀</div><h3 data-en="Innovation" data-fil="Inobasyon">Innovation</h3><p data-en="Turn creative ideas into useful projects and experiences." data-fil="Gawing kapaki-pakinabang na proyekto at karanasan ang mga malikhaing ideya.">Turn creative ideas into useful projects and experiences.</p></div>
 </div>
-
-<div class="mission-card">
-
-<div class="mission-icon">🎓</div>
-
-<h3>Education</h3>
-
-<p>
-Encourage people to learn digital and technology skills.
-</p>
-
-</div>
-
-<div class="mission-card">
-
-<div class="mission-icon">🌍</div>
-
-<h3>Community</h3>
-
-<p>
-Explore ways technology can create positive community impact.
-</p>
-
-</div>
-
-<div class="mission-card">
-
-<div class="mission-icon">🚀</div>
-
-<h3>Innovation</h3>
-
-<p>
-Turn creative ideas into useful projects and experiences.
-</p>
-
-</div>
-
-</div>
-
 </section>
 
-
-<!-- =========================
-     STATS
-========================= -->
+<!-- =====================================================
+     NUMBERS
+===================================================== -->
 
 <section class="section">
 
-<h2 class="title">
-JHR in Numbers
+<h2
+    class="title"
+    data-en="JHR in Numbers"
+    data-fil="JHR sa Bilang"
+>
+
+    JHR in Numbers
+
 </h2>
+
 
 <div class="stats">
 
-<div class="stat">
-<div class="stat-number">100+</div>
-<p>Ideas</p>
-</div>
 
 <div class="stat">
-<div class="stat-number">25+</div>
-<p>Activities</p>
+
+<div class="stat-number">
+    100+
 </div>
 
-<div class="stat">
-<div class="stat-number">10+</div>
-<p>Projects</p>
+<p
+    data-en="Ideas"
+    data-fil="Mga Ideya"
+>
+    Ideas
+</p>
+
 </div>
 
+
 <div class="stat">
-<div class="stat-number">1</div>
-<p>Big Mission</p>
+
+<div class="stat-number">
+    25+
 </div>
+
+<p
+    data-en="Activities"
+    data-fil="Mga Aktibidad"
+>
+    Activities
+</p>
+
+</div>
+
+
+<div class="stat">
+
+<div class="stat-number">
+    10+
+</div>
+
+<p
+    data-en="Projects"
+    data-fil="Mga Proyekto"
+>
+    Projects
+</p>
+
+</div>
+
+
+<div class="stat">
+
+<div class="stat-number">
+    1
+</div>
+
+<p
+    data-en="Big Mission"
+    data-fil="Malaking Misyon"
+>
+    Big Mission
+</p>
+
+</div>
+
 
 </div>
 
 </section>
 
 
-<!-- =========================
+
+<!-- =====================================================
      PROJECTS
-========================= -->
+===================================================== -->
 
 <section class="section" id="projects">
+<h2 class="title" data-en="JHR Projects 🚀" data-fil="Mga Proyekto ng JHR 🚀">JHR Projects 🚀</h2>
+<p class="subtitle" data-en="We are designing projects around learning and positive impact." data-fil="Nagdidisenyo kami ng mga proyekto para sa pagkatuto at positibong epekto.">We are designing projects around learning and positive impact.</p>
+<div class="cards project-mini-grid">
+<div class="card project-mini-card"><h3 data-en="💻 Technology Projects" data-fil="💻 Mga Proyektong Teknolohiya">💻 Technology Projects</h3><p data-en="websites, digital tools, programming, creative technology and experiments" data-fil="mga website, digital tool, programming, malikhaing teknolohiya at mga eksperimento">websites, digital tools, programming, creative technology and experiments</p></div>
+<div class="card project-mini-card"><h3 data-en="🏫 Education" data-fil="🏫 Edukasyon">🏫 Education</h3><p data-en="technology-related learning activities and educational experiences" data-fil="mga aktibidad sa pagkatuto tungkol sa teknolohiya at mga karanasang pang-edukasyon">technology-related learning activities and educational experiences</p></div>
+<div class="card project-mini-card"><h3 data-en="🌱 Community" data-fil="🌱 Komunidad">🌱 Community</h3><p data-en="exploring how technology can support communities and agricultural areas" data-fil="pagtuklas kung paano makatutulong ang teknolohiya sa mga komunidad at lugar na pang-agrikultura">exploring how technology can support communities and agricultural areas</p></div>
+<div class="card project-mini-card"><h3 data-en="🚀 Future Projects" data-fil="🚀 Mga Proyektong Hinaharap">🚀 Future Projects</h3><p data-en="more JHR projects will be added as new initiatives are completed" data-fil="mas marami pang proyekto ng JHR ang idaragdag habang natatapos ang mga bagong inisyatiba">more JHR projects will be added as new initiatives are completed</p></div>
+</div>
+</section>
 
-<h2 class="title">
-JHR Projects 🚀
+<!-- =====================================================
+     SERVICES
+===================================================== -->
+
+<section class="section" id="services">
+<h2 class="title" data-en="JHR Services 💻🎓" data-fil="Mga Serbisyo ng JHR 💻🎓">JHR Services 💻🎓</h2>
+<p class="subtitle" data-en="We provide learning opportunities that help people discover technology and build useful projects." data-fil="Nagbibigay kami ng mga oportunidad sa pagkatuto upang matuklasan ng mga tao ang teknolohiya at makabuo ng mga kapaki-pakinabang na proyekto.">We provide learning opportunities that help people discover technology and build useful projects.</p>
+<div class="services service-center">
+<div class="service-card"><div class="service-icon">💻</div><h3 data-en="Free Coding Classes" data-fil="Libreng Coding Classes">Free Coding Classes</h3><p data-en="We provide free coding classes for beginners and learners who want to start programming." data-fil="Nagbibigay kami ng libreng coding classes para sa mga baguhan at mga nais magsimulang mag-program.">We provide free coding classes for beginners and learners who want to start programming.</p><span class="free" data-en="FREE" data-fil="LIBRE">FREE</span></div>
+<div class="service-card"><div class="service-icon">🌐</div><h3 data-en="Web Development" data-fil="Web Development">Web Development</h3><p data-en="We build and develop websites using HTML, CSS, and JavaScript." data-fil="Gumagawa at nagde-develop kami ng mga website gamit ang HTML, CSS, at JavaScript">We build and develop websites using HTML, CSS, and JavaScript.</p></div>
+<div class="service-card"><div class="service-icon">🚀</div><h3 data-en="Learn by Building" data-fil="Matuto sa Pamamagitan ng Pagbuo">Learn by Building</h3><p data-en="We organize and conduct community outreach for children to learn\nrobotics and coding." data-fil="Nag-oorganisa at nagsasagawa kami ng community outreach para sa mga batang matuto ng robotics at coding.">We organize and conduct community outreach for children to learn<br>robotics and coding.</p></div>
+</div>
+<div class="auth-box" id="coding-classes">
+<h3>📨 Message Staff About Free Coding Classes</h3>
+<p style="color:var(--muted); margin:8px 0 15px;">Send your question or request directly to the JHR staff. You do not need a staff account to send a message.</p>
+<form method="POST" action="{{ url_for('coding_class_message') }}">
+<label for="class-name">Name</label><input id="class-name" type="text" name="name" maxlength="120" placeholder="Your name" required>
+<label for="class-email">Email</label><input id="class-email" type="email" name="email" maxlength="200" placeholder="you@example.com" required>
+<label for="class-message">Message</label><textarea id="class-message" name="message" maxlength="5000" placeholder="Write your message about the free coding classes..." required style="width:100%;min-height:140px;padding:13px;margin:8px 0 14px;border:1px solid var(--border);border-radius:12px;background:var(--background);color:var(--text);font:inherit;resize:vertical;"></textarea>
+<button class="upload-submit" type="submit">📨 Send Message to Staff</button>
+</form>
+</div>
+</section>
+
+<!-- =====================================================
+GALLERY
+     
+     EXACT GALLERY FILES:
+     
+     IMG_0884
+     IMG_5798
+     IMG_12345
+===================================================== -->
+
+<section
+    class="section"
+    id="gallery"
+>
+
+<h2
+    class="title"
+    data-en="JHR Gallery 📸"
+    data-fil="JHR Gallery 📸"
+>
+
+    JHR Gallery 📸
+
 </h2>
 
-<p class="subtitle">
-Our project showcase can grow as new JHR activities
-and initiatives are completed.
+
+<p
+    class="subtitle"
+    data-en="We empower ourselves; we empower others."
+    data-fil="Pinalalakas natin ang ating sarili; pinalalakas natin ang iba."
+>
+    We empower ourselves; we empower others.
 </p>
 
-<div class="cards">
 
-<div class="card">
-<h3>💻 Technology Projects</h3>
-<p>
-Websites, digital tools, programming, creative
-technology and experiments.
+{% if session.get("staff_id") %}
+<div class="auth-box gallery-upload">
+    <h3>📸 Import Pictures</h3>
+    <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from your computer and add them to the JHR Gallery.</p>
+    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
+        <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+        <div id="galleryMetadata"></div>
+        <button class="upload-submit" type="submit">⬆️ Import Pictures</button>
+    </form>
+    <small>Supported: JPG, JPEG, PNG, WEBP, GIF. Each selected photo can have its own title and description.</small>
+</div>
+{% endif %}
+
+<div class="gallery-grid">
+
+{% for image in uploaded_images %}
+<div class="gallery-card uploaded-gallery-card">
+    <a href="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" target="_blank" rel="noopener" class="gallery-image-link">
+        <img src="{{ url_for('uploaded_gallery_image', filename=image['filename']) }}" alt="{{ image['title']|e }}" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <span class="gallery-image-error">Photo could not be loaded.</span>
+    </a>
+    <div class="gallery-caption">
+        <h3>📷 {{ image["title"] }}</h3>
+        <p>{{ image["description"] }}</p>
+    </div>
+</div>
+{% endfor %}
+
+
+<!-- =====================================================
+     IMG_0884
+===================================================== -->
+
+<div class="gallery-card">
+
+
+<img
+    src="/media/IMG_0884"
+    alt="JHR technology activity"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+
+<div class="gallery-caption">
+
+<h3
+    data-en="It's Building Time!"
+    data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
+>
+
+    It's Building Time!
+
+</h3>
+
+
+<p
+    data-en="We introduced children to basic robotics concepts through LEGO blocks."
+    data-fil="Pag-aaral ng teknolohiya, coding at digital skills."
+>
+
+    We introduced children to basic robotics concepts through LEGO blocks.
+
 </p>
+
 </div>
 
-<div class="card">
-<h3>🏫 Education</h3>
-<p>
-Technology-related learning activities and
-educational experiences.
-</p>
 </div>
 
-<div class="card">
-<h3>🌾 Community & Agriculture</h3>
-<p>
-Exploring how technology can support communities
-and agricultural areas.
+
+
+<!-- =====================================================
+     IMG_5798
+===================================================== -->
+
+<div class="gallery-card">
+
+
+<img
+    src="/media/IMG_5798"
+    alt="JHR community learning activity"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+
+<div class="gallery-caption">
+
+<h3
+    data-en="Community Time"
+    data-fil="🤝 Pagkatuto sa Komunidad"
+>
+
+    Community Time
+
+</h3>
+
+
+<p
+    data-en="We introduced children to basic robotics concepts through LEGO SPIKE Prime."
+    data-fil="Sama-samang pag-aaral at pagtutulungan sa komunidad."
+>
+
+    We introduced children to basic robotics concepts through LEGO SPIKE Prime.
+
 </p>
+
 </div>
 
-<div class="card">
-<h3>🚀 Future Projects</h3>
-<p>
-More JHR projects will be added here as they
-are officially completed.
-</p>
 </div>
+
+
+
+<!-- =====================================================
+     IMG_12345
+===================================================== -->
+
+<div class="gallery-card">
+
+
+<img
+    src="/media/IMG_12345"
+    alt="Ozamiz Elementary School JHR activity"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+
+<div class="gallery-caption">
+
+<h3
+    data-en="It's Scratch Time!"
+    data-fil="It's Scratch Time!"
+>
+
+    It's Scratch Time!
+
+</h3>
+
+
+<p
+    data-en="We introduced children to basic coding skills."
+    data-fil="Isang espesyal na sandali ng JHR kasama ang paaralan at komunidad."
+>
+
+    We introduced children to basic coding skills.
+
+</p>
+
+</div>
+
+</div>
+
 
 </div>
 
 </section>
 
 
-<!-- =========================
-     EXPERIENCE
-========================= -->
 
-<section class="section" id="experience">
+<!-- =====================================================
+     NEWS & ANNOUNCEMENTS
+===================================================== -->
 
-<h2 class="title">
-JHR Experience
-</h2>
-
-<p class="subtitle">
-A timeline for documenting JHR activities,
-events and experiences.
-</p>
-
-<div class="cards">
-
-<div class="card">
-
-<h3>🌱 Community Experiences</h3>
-
-<p>
-Learning from communities and exploring how
-technology can be useful in everyday life.
-</p>
-
+<section class="section" id="news">
+<h2 class="title" data-en="News & Announcements 📰" data-fil="Balita at Mga Anunsyo 📰">News & Announcements 📰</h2>
+<p class="subtitle" data-en="Stay updated with JHR news, activities, and announcements." data-fil="Manatiling updated sa mga balita, gawain, at anunsyo ng JHR.">Stay updated with JHR news, activities, and announcements.</p>
+<div class="news-grid">
+{% if news_items %}
+    {% for item in news_items %}
+    <article class="news-card">
+        <div class="news-kind">{{ item["kind"] }}</div>
+        <h3>{{ item["title"] }}</h3>
+        <div class="news-meta">{{ item["created_at"] }}{% if item["author"] %} · Posted by {{ item["author"] }}{% endif %}</div>
+        {% if item["images"] %}
+        <div class="news-images">
+            {% for image in item["images"] %}
+            <img src="{{ url_for('news_image', filename=image) }}" alt="{{ item['title'] }}" loading="lazy" decoding="async">
+            {% endfor %}
+        </div>
+        {% endif %}
+        <p>{{ item["content"] }}</p>
+    </article>
+    {% endfor %}
+{% else %}
+    <article class="news-card">
+        <div class="news-kind">JHR</div>
+        <h3>News & Announcements</h3>
+        <p>New JHR news and announcements will appear here.</p>
+    </article>
+{% endif %}
 </div>
-
-<div class="card">
-
-<h3>🏫 School Experiences</h3>
-
-<p>
-Exploring educational environments and learning
-about technology and education.
-</p>
-
-</div>
-
-<div class="card">
-
-<h3>💻 Technology Experiences</h3>
-
-<p>
-Building projects, experimenting with code and
-learning new technology skills.
-</p>
-
-</div>
-
-</div>
-
 </section>
 
 
@@ -1631,1045 +3037,1943 @@ learning new technology skills.
     data-en="JHR Team 👥"
     data-fil="JHR Team 👥"
 >
+
     JHR Team 👥
+
 </h2>
+
 
 <p
     class="subtitle"
     data-en="Meet the hearts and minds behind the vision."
     data-fil="Kilalanin ang puso at isip sa likod ng pananaw."
 >
+
     Meet the hearts and minds behind the vision.
+
 </p>
+
 
 <div class="owners">
 
+
+<!-- =====================================================
+     JOSE
+===================================================== -->
+
 <div class="owner-card">
+
+
 <img
     class="owner-photo"
-    src="{{ url_for('static', filename='Owner1.jpg') }}"
+    src="/media/Owner1.jpg"
     alt="Jose Hugo Rafael T. Tan"
     loading="lazy"
     decoding="async"
 >
 
+
 <div class="owner-info">
-<h3>Jose Hugo Rafael T. Tan</h3>
+
+<h3>
+    Jose Hugo Rafael T. Tan
+</h3>
+
 
 <div
     class="owner-role"
     data-en="Founder"
     data-fil="Tagapagtatag"
 >
+
     Founder
+
 </div>
+
 
 <p
     data-en="Hugo helps guide JHR's vision, projects, and technology-focused activities."
     data-fil="Tumutulong sa paggabay sa pananaw, mga proyekto at mga aktibidad ng JHR na nakatuon sa teknolohiya."
 >
-    Hugo helps guide JHR's vision, projects, and technology-focused activities.
+
+    Hugo helps guide JHR's vision, projects,
+    and technology-focused activities.
+
 </p>
-</div>
+
 </div>
 
+</div>
+
+
+<!-- =====================================================
+     JULIA
+===================================================== -->
+
 <div class="owner-card">
+
+
 <img
     class="owner-photo"
-    src="{{ url_for('static', filename='Owner2.png') }}"
+    src="/media/Owner2.png"
     alt="Julia Helga Raquel T. Tan"
     loading="lazy"
     decoding="async"
 >
 
+
 <div class="owner-info">
-<h3>Julia Helga Raquel T. Tan</h3>
+
+<h3>
+    Julia Helga Raquel T. Tan
+</h3>
+
 
 <div
     class="owner-role"
     data-en="Founder"
     data-fil="Tagapagtatag"
 >
+
     Founder
+
 </div>
+
 
 <p
     data-en="Julia supports JHR's creativity, projects, and community-focused activities."
     data-fil="Sinusuportahan ang pagkamalikhain, mga proyekto at mga aktibidad ng JHR para sa komunidad."
 >
-    Julia supports JHR's creativity, projects, and community-focused activities.
+
+    Julia supports JHR's creativity, projects,
+    and community-focused activities.
+
 </p>
+
 </div>
+
+</div>
+
+
+</div>
+
+
+
+<div class="coordinator-section">
+
+<h3
+    class="coordinator-section-title"
+    data-en="Coordinators"
+    data-fil="Mga Coordinator"
+>
+    Coordinators
+</h3>
+
+<p
+    class="subtitle"
+    data-en="Meet the local and national coordinators supporting JHR's work."
+    data-fil="Kilalanin ang mga lokal at pambansang coordinator na sumusuporta sa gawain ng JHR."
+>
+    Meet the local and national coordinators supporting JHR's work.
+</p>
+
+<div class="coordinator-grid">
+
+<div class="coordinator-card">
+
+<img
+    class="coordinator-photo"
+    src="/media/Loveth"
+    alt="Loveth D. Cagud"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+<div class="coordinator-info">
+
+<h3>
+    Loveth D. Cagud
+</h3>
+
+<div
+    class="coordinator-role"
+    data-en="Local Coordinator"
+    data-fil="Lokal na Coordinator"
+>
+    Local Coordinator
+</div>
+
+<p
+    class="coordinator-location"
+    data-en="Misamis Occidental"
+    data-fil="Misamis Occidental"
+>
+    Misamis Occidental
+</p>
+
+</div>
+
+</div>
+
+
+<div class="coordinator-card">
+
+<img
+    class="coordinator-photo"
+    src="/media/Tagupa"
+    alt="May Hazel M. Tagupa"
+    loading="lazy"
+    decoding="async"
+    onerror="imageError(this)"
+>
+
+<div class="coordinator-info">
+
+<h3>
+    May Hazel M. Tagupa
+</h3>
+
+<div
+    class="coordinator-role"
+    data-en="National Coordinator"
+    data-fil="Pambansang Coordinator"
+>
+    National Coordinator
+</div>
+
+<p
+    class="coordinator-location"
+    data-en="Philippines"
+    data-fil="Pilipinas"
+>
+    Philippines
+</p>
+
+</div>
+
 </div>
 
 </div>
 
+</div>
 </section>
 
 
-<!-- =========================
-     GALLERY
-========================= -->
 
-<section class="section" id="gallery">
+<!-- =====================================================
+     GAME ZONE
+===================================================== -->
 
-<h2 class="title">JHR Gallery 📸</h2>
-<p class="subtitle">Photos and memories from JHR.</p>
+<section
+    class="games"
+    id="games"
+>
 
-{% if gallery %}
-<div class="post-grid">
-{% for post in gallery %}
-<article class="post-card">
-{% if post["image_mime"] %}
-<img class="post-image" src="{{ url_for('post_image', post_id=post['id']) }}" alt="{{ post['title'] }}">
-{% else %}
-<div class="post-no-image">📷</div>
-{% endif %}
-<div class="post-body">
-<h3>{{ post["title"] }}</h3>
-<div class="post-date">{{ post["created_at"] }}</div>
-<p>{{ post["description"] }}</p>
-</div>
-</article>
-{% endfor %}
-</div>
-{% else %}
-<div class="empty-posts">No gallery photos have been posted yet.</div>
-{% endif %}
+<h2
+    class="title"
+    data-en="JHR GAME ZONE 🎮"
+    data-fil="JHR GAME ZONE 🎮"
+>
 
-</section>
+    JHR GAME ZONE 🎮
 
-
-<!-- =========================
-     NEWS & ANNOUNCEMENTS
-========================= -->
-
-<section class="section" id="news">
-
-<h2 class="title">JHR News & Announcements 📰📢</h2>
-<p class="subtitle">Latest JHR news, updates, and important announcements.</p>
-
-{% if news %}
-<div class="post-grid">
-{% for post in news %}
-<article class="post-card">
-{% if post["image_mime"] %}
-<img class="post-image" src="{{ url_for('post_image', post_id=post['id']) }}" alt="{{ post['title'] }}">
-{% else %}
-<div class="post-no-image">{% if post["section"] == "announcement" %}📢{% else %}📰{% endif %}</div>
-{% endif %}
-<div class="post-body">
-<div class="post-type">{% if post["section"] == "announcement" %}ANNOUNCEMENT{% else %}NEWS{% endif %}</div>
-<h3>{{ post["title"] }}</h3>
-<div class="post-date">{{ post["created_at"] }}</div>
-<p>{{ post["description"] }}</p>
-</div>
-</article>
-{% endfor %}
-</div>
-{% else %}
-<div class="empty-posts">No news or announcements have been posted yet.</div>
-{% endif %}
-
-</section>
-
-
-<!-- =========================
-     GAMES
-========================= -->
-
-<section class="games" id="games">
-
-<h2 class="title">
-JHR GAME ZONE 🎮
 </h2>
 
-<p class="subtitle">
-Learn, think and have fun!
+
+<p
+    class="subtitle"
+    data-en="12 games to learn, think and have fun!"
+    data-fil="12 laro para matuto, mag-isip at magsaya!"
+>
+
+    12 games to learn,
+    think and have fun!
+
 </p>
+
 
 <div class="game-grid">
 
-<div class="game">
 
-<h3>⚡ Speed Math</h3>
-
-<p>What is 12 × 8?</p>
-
-<button onclick="mathGame(96)">96</button>
-<button onclick="mathGame(88)">88</button>
-<button onclick="mathGame(108)">108</button>
-
-<div id="mathResult" class="game-result">
-Choose an answer!
-</div>
-
-</div>
-
+<!-- =====================================================
+     GAME 1
+===================================================== -->
 
 <div class="game">
 
-<h3>🧠 Tech Quiz</h3>
+<h3
+    data-en="⚡ Speed Math"
+    data-fil="⚡ Mabilis na Math"
+>
+    ⚡ Speed Math
+</h3>
 
-<p>What does CPU mean?</p>
-
-<button onclick="techGame(false)">
-Computer Personal Unit
-</button>
-
-<button onclick="techGame(true)">
-Central Processing Unit
-</button>
-
-<button onclick="techGame(false)">
-Central Program Utility
-</button>
-
-<div id="techResult" class="game-result">
-Choose an answer!
-</div>
-
-</div>
-
-
-<div class="game">
-
-<h3>🔢 Number Guess</h3>
-
-<p>Guess the secret number: 1–5</p>
-
-<button onclick="guessGame(1)">1</button>
-<button onclick="guessGame(2)">2</button>
-<button onclick="guessGame(3)">3</button>
-<button onclick="guessGame(4)">4</button>
-<button onclick="guessGame(5)">5</button>
-
-<div id="guessResult" class="game-result">
-Good luck!
-</div>
-
-</div>
-
-
-<div class="game">
-
-<h3>🌍 Digital Citizenship</h3>
-
-<p>Which is responsible technology use?</p>
-
-<button onclick="citizenGame(true)">
-Learning 📚
-</button>
-
-<button onclick="citizenGame(false)">
-Cyberbullying 😈
-</button>
-
-<button onclick="citizenGame(false)">
-Fake News ❌
-</button>
-
-<div id="citizenResult" class="game-result">
-Choose an answer!
-</div>
-
-</div>
-
-
-<div class="game">
-
-<h3>🚀 JHR Challenge</h3>
-
-<p>
-What should you do when learning something difficult?
+<p
+    data-en="What is 12 × 8?"
+    data-fil="Magkano ang 12 × 8?"
+>
+    What is 12 × 8?
 </p>
 
-<button onclick="challengeGame(true)">
-Keep practicing 💪
+<button onclick="answer('g1',true)">
+96
 </button>
 
-<button onclick="challengeGame(false)">
-Give up 😴
+<button onclick="answer('g1',false)">
+88
 </button>
 
-<button onclick="challengeGame(false)">
-Never try again ❌
+<button onclick="answer('g1',false)">
+108
 </button>
 
-<div id="challengeResult" class="game-result">
-Your challenge awaits!
+<div id="g1" class="result"></div>
+
 </div>
 
-</div>
 
+<!-- GAME 2 -->
 
 <div class="game">
 
-<h3>➕ Quick Addition</h3>
+<h3
+    data-en="🧠 Tech Quiz"
+    data-fil="🧠 Tech Quiz"
+>
+    🧠 Tech Quiz
+</h3>
 
-<p>
-<strong>27 + 15 = ?</strong>
+<p
+    data-en="What does CPU mean?"
+    data-fil="Ano ang ibig sabihin ng CPU?"
+>
+
+    What does CPU mean?
+
 </p>
 
-<button onclick="additionGame(42)">42</button>
-<button onclick="additionGame(41)">41</button>
-<button onclick="additionGame(52)">52</button>
+<button
+    data-en="Central Processing Unit"
+    data-fil="Central Processing Unit"
+    onclick="answer('g2',true)"
+>
+    Central Processing Unit
+</button>
 
-<div id="additionResult" class="game-result">
-Choose!
+<button
+    data-en="Computer Power Unit"
+    data-fil="Computer Power Unit"
+    onclick="answer('g2',false)"
+>
+    Computer Power Unit
+</button>
+
+<div id="g2" class="result"></div>
+
 </div>
 
-</div>
 
+<!-- GAME 3 -->
 
 <div class="game">
 
-<h3>💡 Technology True or False</h3>
+<h3
+    data-en="🔐 Online Safety"
+    data-fil="🔐 Kaligtasan Online"
+>
+    🔐 Online Safety
+</h3>
 
-<p>
-A strong password helps protect an account.
+<p
+    data-en="Should you share your password?"
+    data-fil="Dapat mo bang ibahagi ang iyong password?"
+>
+
+    Should you share your password?
+
 </p>
 
-<button onclick="trueFalseGame(true)">
-TRUE
+<button
+    data-en="Yes"
+    data-fil="Oo"
+    onclick="answer('g3',false)"
+>
+    Yes
 </button>
 
-<button onclick="trueFalseGame(false)">
-FALSE
+<button
+    data-en="No"
+    data-fil="Hindi"
+    onclick="answer('g3',true)"
+>
+    No
 </button>
 
-<div id="trueFalseResult" class="game-result">
-Choose!
-</div>
+<div id="g3" class="result"></div>
 
 </div>
 
+
+<!-- GAME 4 -->
 
 <div class="game">
 
-<h3>🌟 JHR Values</h3>
+<h3
+    data-en="🤝 JHR Values"
+    data-fil="🤝 Mga Halaga ng JHR"
+>
 
-<p>
-Which value helps a community grow?
+    🤝 JHR Values
+
+</h3>
+
+<p
+    data-en="What helps a team succeed?"
+    data-fil="Ano ang tumutulong sa isang koponan upang magtagumpay?"
+>
+
+    What helps a team succeed?
+
 </p>
 
-<button onclick="valuesGame(true)">
-Cooperation 🤝
+<button
+    data-en="Cooperation"
+    data-fil="Pagtutulungan"
+    onclick="answer('g4',true)"
+>
+    Cooperation
 </button>
 
-<button onclick="valuesGame(false)">
-Bullying ❌
+<button
+    data-en="Giving up"
+    data-fil="Pagsuko"
+    onclick="answer('g4',false)"
+>
+    Giving up
 </button>
 
-<button onclick="valuesGame(false)">
-Dishonesty ❌
-</button>
+<div id="g4" class="result"></div>
 
-<div id="valuesResult" class="game-result">
-Choose!
 </div>
 
+
+<!-- GAME 5 -->
+
+<div class="game">
+
+<h3
+    data-en="🌐 HTML Quiz"
+    data-fil="🌐 HTML Quiz"
+>
+
+    🌐 HTML Quiz
+
+</h3>
+
+<p
+    data-en="What does HTML help create?"
+    data-fil="Ano ang tinutulungan ng HTML na gawin?"
+>
+
+    What does HTML help create?
+
+</p>
+
+<button
+    data-en="Web pages"
+    data-fil="Web pages"
+    onclick="answer('g5',true)"
+>
+    Web pages
+</button>
+
+<button
+    data-en="Batteries"
+    data-fil="Baterya"
+    onclick="answer('g5',false)"
+>
+    Batteries
+</button>
+
+<div id="g5" class="result"></div>
+
 </div>
+
+
+<!-- GAME 6 -->
+
+<div class="game">
+
+<h3
+    data-en="🔢 Binary"
+    data-fil="🔢 Binary"
+>
+
+    🔢 Binary
+
+</h3>
+
+<p
+    data-en="What numbers are used in binary?"
+    data-fil="Anong mga numero ang ginagamit sa binary?"
+>
+
+    What numbers are used in binary?
+
+</p>
+
+<button
+    data-en="0 and 1"
+    data-fil="0 at 1"
+    onclick="answer('g6',true)"
+>
+    0 and 1
+</button>
+
+<button
+    data-en="1 and 9"
+    data-fil="1 at 9"
+    onclick="answer('g6',false)"
+>
+    1 and 9
+</button>
+
+<div id="g6" class="result"></div>
+
+</div>
+
+
+<!-- GAME 7 -->
+
+<div class="game">
+
+<h3
+    data-en="➕ Quick Addition"
+    data-fil="➕ Mabilis na Addition"
+>
+
+    ➕ Quick Addition
+
+</h3>
+
+<p>
+    27 + 15 = ?
+</p>
+
+<button onclick="answer('g7',true)">
+42
+</button>
+
+<button onclick="answer('g7',false)">
+41
+</button>
+
+<button onclick="answer('g7',false)">
+52
+</button>
+
+<div id="g7" class="result"></div>
+
+</div>
+
+
+<!-- GAME 8 -->
+
+<div class="game">
+
+<h3
+    data-en="✖️ Multiplication"
+    data-fil="✖️ Multiplication"
+>
+
+    ✖️ Multiplication
+
+</h3>
+
+<p>
+    7 × 6 = ?
+</p>
+
+<button onclick="answer('g8',true)">
+42
+</button>
+
+<button onclick="answer('g8',false)">
+48
+</button>
+
+<button onclick="answer('g8',false)">
+36
+</button>
+
+<div id="g8" class="result"></div>
+
+</div>
+
+
+<!-- GAME 9 -->
+
+<div class="game">
+
+<h3
+    data-en="🧩 Logic Puzzle"
+    data-fil="🧩 Logic Puzzle"
+>
+
+    🧩 Logic Puzzle
+
+</h3>
+
+<p
+    data-en="What comes next? 2, 4, 6, 8, ?"
+    data-fil="Ano ang kasunod? 2, 4, 6, 8, ?"
+>
+
+    What comes next?
+    2, 4, 6, 8, ?
+
+</p>
+
+<button onclick="answer('g9',true)">
+10
+</button>
+
+<button onclick="answer('g9',false)">
+12
+</button>
+
+<button onclick="answer('g9',false)">
+9
+</button>
+
+<div id="g9" class="result"></div>
+
+</div>
+
+
+<!-- GAME 10 -->
+
+<div class="game">
+
+<h3
+    data-en="🔤 Word Scramble"
+    data-fil="🔤 Ayusin ang Salita"
+>
+
+    🔤 Word Scramble
+
+</h3>
+
+<p
+    data-en="Unscramble: GOCIDN"
+    data-fil="Ayusin: GOCIDN"
+>
+
+    Unscramble:
+    GOCIDN
+
+</p>
+
+<button
+    data-en="CODING"
+    data-fil="CODING"
+    onclick="answer('g10',true)"
+>
+    CODING
+</button>
+
+<button
+    data-en="CLOUD"
+    data-fil="CLOUD"
+    onclick="answer('g10',false)"
+>
+    CLOUD
+</button>
+
+<button
+    data-en="GARDEN"
+    data-fil="GARDEN"
+    onclick="answer('g10',false)"
+>
+    GARDEN
+</button>
+
+<div id="g10" class="result"></div>
+
+</div>
+
+
+<!-- GAME 11 -->
+
+<div class="game">
+
+<h3
+    data-en="🌟 Innovation Quiz"
+    data-fil="🌟 Innovation Quiz"
+>
+
+    🌟 Innovation Quiz
+
+</h3>
+
+<p
+    data-en="What is a good first step for a new idea?"
+    data-fil="Ano ang magandang unang hakbang para sa bagong ideya?"
+>
+
+    What is a good first step for a new idea?
+
+</p>
+
+<button
+    data-en="Plan and test it"
+    data-fil="Planuhin at subukan ito"
+    onclick="answer('g11',true)"
+>
+    Plan and test it
+</button>
+
+<button
+    data-en="Ignore it"
+    data-fil="Huwag pansinin"
+    onclick="answer('g11',false)"
+>
+    Ignore it
+</button>
+
+<button
+    data-en="Give up"
+    data-fil="Sumuko"
+    onclick="answer('g11',false)"
+>
+    Give up
+</button>
+
+<div id="g11" class="result"></div>
+
+</div>
+
+
+<!-- GAME 12 -->
+
+<div class="game">
+
+<h3
+    data-en="🌍 Digital Citizenship"
+    data-fil="🌍 Digital Citizenship"
+>
+
+    🌍 Digital Citizenship
+
+</h3>
+
+<p
+    data-en="Which is responsible technology use?"
+    data-fil="Alin ang responsableng paggamit ng teknolohiya?"
+>
+
+    Which is responsible technology use?
+
+</p>
+
+<button
+    data-en="Learning"
+    data-fil="Pag-aaral"
+    onclick="answer('g12',true)"
+>
+    Learning
+</button>
+
+<button
+    data-en="Cyberbullying"
+    data-fil="Cyberbullying"
+    onclick="answer('g12',false)"
+>
+    Cyberbullying
+</button>
+
+<button
+    data-en="Sharing passwords"
+    data-fil="Pagbabahagi ng password"
+    onclick="answer('g12',false)"
+>
+    Sharing passwords
+</button>
+
+<div id="g12" class="result"></div>
+
+</div>
+
 
 </div>
 
 </section>
 
 
-<!-- =========================
-     CONTACT
-========================= -->
 
-<section class="section" id="contact">
+<!-- =====================================================
+     CONTACT
+===================================================== -->
+
+<section
+    class="section"
+    id="contact"
+>
 
 <div class="contact">
 
-<h2>JHR</h2>
 
-<p>
-<strong>
-Join us in this journey!
-</strong>
-</p>
-
-<br>
-
-<p>
-📧
-<a href="mailto:josehr.tan@gmail.com">
-josehr.tan@gmail.com
-</a>
-</p>
-
-<p>
-📱
-<a href="tel:09096585708">
-0909 658 5708
-</a>
-</p>
-
-<br>
-
-<a
-class="button"
-href="https://www.facebook.com/jhrtan"
-target="_blank"
-rel="noopener noreferrer"
+<h2
+    data-en="Contact JHR"
+    data-fil="Kontakin ang JHR"
 >
-📘 JHR Facebook
-</a>
+
+    Contact JHR
+
+</h2>
+
+
+<p
+    data-en="Join us in this journey of technology, education, innovation and community."
+    data-fil="Sumama sa aming paglalakbay sa teknolohiya, edukasyon, inobasyon at komunidad."
+>
+
+    Join us in this journey of technology,
+    education, innovation and community.
+
+</p>
+
+
+<p>
+    📧
+    <a
+        href="mailto:josehr.tan@gmail.com"
+    >
+        josehr.tan@gmail.com
+    </a>
+</p>
+
+
+<p>
+    📱
+    <a
+        href="tel:09096585708"
+    >
+        0909 658 5708
+    </a>
+</p>
+
+
+</div>
+
+
+<!-- =====================================================
+     JHR JOURNEY
+===================================================== -->
+
+<div class="join">
+
+
+<h2
+    data-en="Join the JHR Journey 🚀"
+    data-fil="Sumama sa JHR Journey 🚀"
+>
+
+    Join the JHR Journey 🚀
+
+</h2>
+
+
+<p
+    data-en="Technology • Education • Innovation • Community"
+    data-fil="Teknolohiya • Edukasyon • Inobasyon • Komunidad"
+>
+
+    Technology • Education • Innovation • Community
+
+</p>
+
+
+<p
+    data-en="Learn. Create. Share. Empower."
+    data-fil="Matuto. Lumikha. Magbahagi. Magbigay-lakas."
+>
+
+    Learn. Create. Share. Empower.
+
+</p>
+
+
+<!-- =====================================================
+     VIEWER COUNTER
+===================================================== -->
+
+<div class="viewer-counter">
+
+    👀
+
+    <strong>
+        {{ viewer_count }}
+    </strong>
+
+    <span
+        id="visitorWord"
+    >
+        Visitors
+    </span>
+
+</div>
+
 
 </div>
 
 </section>
 
 
-<!-- =========================
+
+<!-- =====================================================
      FOOTER
-========================= -->
+===================================================== -->
 
 <footer>
 
 <div class="footer-logo">
-JHR
+    JHR
 </div>
 
-<div>
-EMPOWERMENT THROUGH TECHNOLOGY
-</div>
 
-<p>
-Technology • Education • Innovation • Community
+<p
+    data-en="Empowerment Through Technology"
+    data-fil="Pagpapalakas sa Pamamagitan ng Teknolohiya"
+>
+
+    Empowerment Through Technology
+
 </p>
 
-<a
-class="social"
-href="https://www.facebook.com/jhrtan"
-target="_blank"
-rel="noopener noreferrer"
+
+<p
+    data-en="Technology • Education • Innovation • Community"
+    data-fil="Teknolohiya • Edukasyon • Inobasyon • Komunidad"
 >
-📘 JHR Facebook
-</a>
 
-<br><br>
+    Technology • Education • Innovation • Community
 
-<p>
-© 2026 JHR
+</p>
+
+
+<p
+    data-en="© 2026 JHR Team"
+    data-fil="© 2026 JHR Team"
+>
+
+    © 2026 JHR Team
+
 </p>
 
 </footer>
 
 
-<!-- MUSIC BUTTON -->
+
+<!-- =====================================================
+     TOP BUTTON
+===================================================== -->
 
 <button
-class="music-control"
-onclick="toggleMusic()"
-id="musicButton"
+    class="top"
+    id="topButton"
+    onclick="window.scrollTo({
+        top:0,
+        behavior:'smooth'
+    })"
 >
-🎵
+
+    ↑
+
 </button>
 
-
-<!-- TOP BUTTON -->
-
-<button
-class="top"
-id="topButton"
-onclick="window.scrollTo({top:0,behavior:'smooth'})"
->
-↑
-</button>
 
 
 <script>
 
-/* =========================
+/* =====================================================
    LANGUAGE
-========================= */
+===================================================== */
 
 let currentLanguage =
-localStorage.getItem("jhr-language") || "en";
+    localStorage.getItem(
+        "jhrLanguage"
+    ) || "en";
 
-function translatePage() {
 
-    document.querySelectorAll("[data-en]").forEach(element => {
+function applyLanguage() {
 
-        const text =
+    document
+        .querySelectorAll(
+            "[data-en]"
+        )
+        .forEach(function(element) {
+
+            const english =
+                element.getAttribute(
+                    "data-en"
+                );
+
+            const filipino =
+                element.getAttribute(
+                    "data-fil"
+                );
+
+            element.textContent =
+                currentLanguage === "en"
+                    ? english
+                    : filipino;
+
+        });
+
+
+    document.getElementById(
+        "langBtn"
+    ).textContent =
         currentLanguage === "en"
-        ? element.getAttribute("data-en")
-        : element.getAttribute("data-fil");
+            ? "🇵🇭 FIL"
+            : "🇬🇧 ENG";
 
-        if (text) {
-            element.textContent = text;
-        }
 
-    });
+    const visitor =
+        document.getElementById(
+            "visitorWord"
+        );
 
-    document.getElementById("languageButton").textContent =
-    currentLanguage === "en"
-    ? "🇵🇭 FIL"
-    : "🇬🇧 ENG";
+    if (visitor) {
+
+        visitor.textContent =
+            currentLanguage === "en"
+                ? "Visitors"
+                : "Mga Bisita";
+
+    }
+
+
+    document.documentElement.lang =
+        currentLanguage === "en"
+            ? "en"
+            : "fil";
 }
+
 
 function toggleLanguage() {
 
     currentLanguage =
-    currentLanguage === "en"
-    ? "fil"
-    : "en";
+        currentLanguage === "en"
+            ? "fil"
+            : "en";
+
 
     localStorage.setItem(
-        "jhr-language",
+        "jhrLanguage",
         currentLanguage
     );
 
-    translatePage();
+
+    applyLanguage();
+
 }
 
-translatePage();
+
+/* =====================================================
+   DARK / LIGHT MODE
+===================================================== */
+
+function applyTheme() {
+
+    const saved =
+        localStorage.getItem(
+            "jhrTheme"
+        );
 
 
-/* =========================
-   DARK MODE
-========================= */
+    if (
+        saved === "dark"
+    ) {
 
-function toggleDarkMode() {
+        document.body.classList.add(
+            "dark"
+        );
 
-    document.body.classList.toggle("dark");
+        document.getElementById(
+            "themeBtn"
+        ).textContent = "☀️";
+
+    } else {
+
+        document.body.classList.remove(
+            "dark"
+        );
+
+        document.getElementById(
+            "themeBtn"
+        ).textContent = "🌙";
+
+    }
+
+}
+
+
+function toggleTheme() {
+
+    const dark =
+        document.body.classList.toggle(
+            "dark"
+        );
+
 
     localStorage.setItem(
-        "jhr-dark-mode",
-        document.body.classList.contains("dark")
+        "jhrTheme",
+        dark
+            ? "dark"
+            : "light"
     );
+
+
+    document.getElementById(
+        "themeBtn"
+    ).textContent =
+        dark
+            ? "☀️"
+            : "🌙";
+
 }
+
+
+/* =====================================================
+   GAME ANSWERS
+===================================================== */
+
+function answer(
+    id,
+    correct
+) {
+
+    const result =
+        document.getElementById(id);
+
+
+    if (correct) {
+
+        result.textContent =
+            currentLanguage === "en"
+                ? "🎉 Correct! Great job!"
+                : "🎉 Tama! Mahusay!";
+
+    } else {
+
+        result.textContent =
+            currentLanguage === "en"
+                ? "❌ Try again!"
+                : "❌ Subukan muli!";
+
+    }
+
+}
+
+
+/* =====================================================
+   VIEWER COUNTER
+===================================================== */
+
+const viewerKey =
+    "jhr_local_viewers";
+
+
+let visitors =
+    Number(
+        localStorage.getItem(
+            viewerKey
+        )
+    ) || 0;
+
 
 if (
-    localStorage.getItem("jhr-dark-mode")
-    === "true"
+    !sessionStorage.getItem(
+        "jhr_counted"
+    )
 ) {
-    document.body.classList.add("dark");
-}
 
+    visitors++;
 
-/* =========================
-   GAMES
-========================= */
-
-function mathGame(answer) {
-
-    document.getElementById("mathResult").textContent =
-    answer === 96
-    ? "🎉 CORRECT!"
-    : "❌ Try again!";
-}
-
-
-function techGame(correct) {
-
-    document.getElementById("techResult").textContent =
-    correct
-    ? "🚀 Correct!"
-    : "❌ Try again!";
-}
-
-
-let secretNumber =
-Math.floor(Math.random() * 5) + 1;
-
-function guessGame(number) {
-
-    if (number === secretNumber) {
-
-        document.getElementById("guessResult").textContent =
-        "🏆 AMAZING!";
-
-        secretNumber =
-        Math.floor(Math.random() * 5) + 1;
-
-    } else {
-
-        document.getElementById("guessResult").textContent =
-        "❌ Nope! Try again.";
-
-    }
-}
-
-
-function citizenGame(correct) {
-
-    document.getElementById("citizenResult").textContent =
-    correct
-    ? "🌟 Correct!"
-    : "❌ Try again!";
-}
-
-
-function challengeGame(correct) {
-
-    document.getElementById("challengeResult").textContent =
-    correct
-    ? "💪 That's the JHR spirit!"
-    : "😂 Keep going!";
-}
-
-
-function additionGame(answer) {
-
-    document.getElementById("additionResult").textContent =
-    answer === 42
-    ? "🎉 Correct!"
-    : "❌ Try again!";
-}
-
-
-function trueFalseGame(correct) {
-
-    document.getElementById("trueFalseResult").textContent =
-    correct
-    ? "🔐 Correct! Stay safe online!"
-    : "❌ Try again!";
-}
-
-
-function valuesGame(correct) {
-
-    document.getElementById("valuesResult").textContent =
-    correct
-    ? "🤝 Correct! Cooperation matters!"
-    : "❌ Try again!";
-}
-
-
-/* =========================
-   TOP BUTTON
-========================= */
-
-window.addEventListener("scroll", function() {
-
-    document.getElementById("topButton").style.display =
-    window.scrollY > 500
-    ? "block"
-    : "none";
-
-});
-
-
-/* =========================
-   SIMPLE MUSIC
-========================= */
-
-let audioContext = null;
-let musicPlaying = false;
-let musicTimer = null;
-
-const melody = [
-    261.63,
-    329.63,
-    392.00,
-    523.25,
-    392.00,
-    329.63
-];
-
-let noteIndex = 0;
-
-function playNote() {
-
-    if (!audioContext) {
-
-        audioContext =
-        new (
-            window.AudioContext ||
-            window.webkitAudioContext
-        )();
-
-    }
-
-    const oscillator =
-    audioContext.createOscillator();
-
-    const gain =
-    audioContext.createGain();
-
-    oscillator.type = "sine";
-
-    oscillator.frequency.value =
-    melody[noteIndex];
-
-    gain.gain.setValueAtTime(
-        0.0001,
-        audioContext.currentTime
+    localStorage.setItem(
+        viewerKey,
+        visitors
     );
 
-    gain.gain.exponentialRampToValueAtTime(
-        0.05,
-        audioContext.currentTime + .03
+    sessionStorage.setItem(
+        "jhr_counted",
+        "1"
     );
 
-    gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        audioContext.currentTime + .4
-    );
-
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-
-    oscillator.start();
-
-    oscillator.stop(
-        audioContext.currentTime + .45
-    );
-
-    noteIndex =
-    (noteIndex + 1) % melody.length;
 }
 
 
-function toggleMusic() {
+/* =====================================================
+   STAFF SESSION AUTO-LOGOUT
+===================================================== */
 
-    const button =
-    document.getElementById("musicButton");
+{% if session.get("staff_id") %}
+(function () {
+    const timeoutMs = 5 * 60 * 1000;
+    let lastActivity = Date.now();
+    let heartbeatTimer = null;
 
-    if (!audioContext) {
-
-        audioContext =
-        new (
-            window.AudioContext ||
-            window.webkitAudioContext
-        )();
-
+    function markActivity() {
+        lastActivity = Date.now();
     }
 
-    if (audioContext.state === "suspended") {
-        audioContext.resume();
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(function (eventName) {
+        window.addEventListener(eventName, markActivity, { passive: true });
+    });
+
+    function heartbeat() {
+        fetch("{{ url_for('staff_heartbeat') }}", {
+            method: "POST",
+            headers: {"X-Requested-With": "XMLHttpRequest"},
+            credentials: "same-origin"
+        }).then(function (response) {
+            if (response.status === 401 || response.redirected) {
+                window.location.href = "{{ url_for('login') }}";
+            }
+        }).catch(function () {});
     }
 
-    musicPlaying = !musicPlaying;
+    heartbeatTimer = setInterval(function () {
+        if (Date.now() - lastActivity >= timeoutMs) {
+            clearInterval(heartbeatTimer);
+            window.location.href = "{{ url_for('logout') }}";
+            return;
+        }
+        heartbeat();
+    }, 60 * 1000);
 
-    if (musicPlaying) {
+    window.addEventListener("beforeunload", function () {
+        clearInterval(heartbeatTimer);
+    });
+})();
+{% endif %}
 
-        playNote();
 
-        musicTimer =
-        setInterval(playNote, 500);
+/* =====================================================
+   GALLERY METADATA FIELDS
+===================================================== */
 
-        button.textContent = "🔊";
+(function () {
+    const fileInput = document.getElementById("galleryFiles");
+    const metadata = document.getElementById("galleryMetadata");
 
-    } else {
-
-        clearInterval(musicTimer);
-
-        button.textContent = "🎵";
+    if (!fileInput || !metadata) {
+        return;
     }
+
+    fileInput.addEventListener("change", function () {
+        metadata.innerHTML = "";
+
+        Array.from(fileInput.files).forEach(function (file, index) {
+            const row = document.createElement("div");
+            row.className = "gallery-meta-row";
+
+            row.innerHTML =
+                '<div>' +
+                    '<div class="gallery-file-name">📷 ' + escapeHtml(file.name) + '</div>' +
+                    '<label>Photo title</label>' +
+                    '<input type="text" name="title_' + index + '" maxlength="160" placeholder="Title for this photo">' +
+                '</div>' +
+                '<div>' +
+                    '<label>Photo description</label>' +
+                    '<textarea name="description_' + index + '" maxlength="2000" placeholder="Describe this photo..."></textarea>' +
+                '</div>';
+
+            metadata.appendChild(row);
+        });
+    });
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (character) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            }[character];
+        });
+    }
+})();
+
+
+/* =====================================================
+   IMAGE ERROR HANDLER
+===================================================== */
+
+function imageError(image) {
+
+    image.style.background =
+        "linear-gradient(135deg,#4c1d95,#7c3aed)";
+
+    image.alt =
+        "JHR image";
+
 }
+
+
+/* =====================================================
+   BACK TO TOP
+===================================================== */
+
+window.addEventListener(
+    "scroll",
+    function() {
+
+        const button =
+            document.getElementById(
+                "topButton"
+            );
+
+
+        if (
+            window.scrollY > 500
+        ) {
+
+            button.style.display =
+                "block";
+
+        } else {
+
+            button.style.display =
+                "none";
+
+        }
+
+    }
+);
+
+
+/* =====================================================
+   START
+===================================================== */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+        applyTheme();
+
+        applyLanguage();
+
+    }
+);
 
 </script>
+
 
 </body>
 </html>
 """
 
 
+# =========================================================
+# HOME
+# =========================================================
+
 @app.route("/")
 def home():
-    record_viewer()
-    return render_template_string(
+
+    global viewer_count
+
+    viewer_count += 1
+    viewer_id, _ = track_viewer("/")
+
+    response = render_template_string(
         HTML,
-        gallery=get_posts("gallery"),
-        news=get_news_updates()
+        viewer_count=viewers_collection.count_documents({}),
+        uploaded_images=gallery_images(),
+        news_items=news_items()
     )
-
-
-@app.route("/image/<post_id>")
-def post_image(post_id):
-    if using_mongo():
-        from bson import ObjectId
-        try:
-            post = mongo_db.posts.find_one({"_id": ObjectId(post_id)})
-        except Exception:
-            post = None
-        if not post or not post.get("image_id"):
-            abort(404)
-        try:
-            blob = mongo_fs.get(post["image_id"])
-            return send_file(BytesIO(blob.read()), mimetype=post.get("image_mime") or "application/octet-stream", max_age=3600)
-        except Exception:
-            abort(404)
-
-    try:
-        legacy_id = int(post_id)
-    except ValueError:
-        abort(404)
-    db = get_db()
-    post = db.execute("SELECT image_data, image_mime FROM posts WHERE id=?", (legacy_id,)).fetchone()
-    db.close()
-    if not post or not post["image_data"]:
-        abort(404)
-    return send_file(BytesIO(post["image_data"]), mimetype=post["image_mime"], max_age=0)
-
-
-@app.route("/staff/login", methods=["GET", "POST"])
-def staff_login():
-    if staff_required():
-        return redirect(url_for("staff_dashboard"))
-
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-
-        if (secrets.compare_digest(username, STAFF_USERNAME) and
-                secrets.compare_digest(password, STAFF_PASSWORD)):
-            session.clear()
-            session["staff_logged_in"] = True
-            return redirect(url_for("staff_dashboard"))
-
-        flash("Incorrect username or password.")
-
-    return render_template_string(STAFF_LOGIN_HTML)
-
-
-@app.route("/staff/logout")
-def staff_logout():
-    session.clear()
-    return redirect(url_for("home"))
-
-
-@app.route("/staff")
-def staff_dashboard():
-    if not staff_required():
-        return redirect(url_for("staff_login"))
-
-    return render_template_string(
-        STAFF_DASHBOARD_HTML,
-        gallery=get_posts("gallery"),
-        news=get_news_updates()
+    from flask import make_response
+    response = make_response(response)
+    response.set_cookie(
+        "jhr_viewer_id",
+        viewer_id,
+        max_age=60 * 60 * 24 * 365,
+        httponly=True,
+        samesite="Lax",
     )
+    return response
 
 
-@app.route("/staff/add/<section>", methods=["POST"])
-def add_post(section):
-    if not staff_required(): return redirect(url_for("staff_login"))
-    if section not in {"gallery", "news", "announcement"}: abort(404)
-    title = request.form.get("title", "").strip()
-    description = request.form.get("description", "").strip()
-    if not title or not description:
-        flash("Title and description are required.")
-        return redirect(url_for("staff_dashboard"))
-    try:
-        image_data, image_mime = read_uploaded_image(required=(section == "gallery"))
-    except ValueError as exc:
-        flash(str(exc)); return redirect(url_for("staff_dashboard"))
-    created_text = datetime.now().strftime("%B %d, %Y %I:%M %p")
-    created_sort = datetime.utcnow()
-    if using_mongo():
-        doc = {"section": section, "title": title, "description": description, "created_at": created_text, "created_at_sort": created_sort}
-        if image_data is not None:
-            doc["image_id"] = mongo_fs.put(image_data, contentType=image_mime, filename=secrets.token_hex(8))
-            doc["image_mime"] = image_mime
-        mongo_db.posts.insert_one(doc)
-    else:
-        db = get_db(); db.execute("INSERT INTO posts (section,title,description,image_data,image_mime,created_at) VALUES (?,?,?,?,?,?)", (section,title,description,image_data,image_mime,created_text)); db.commit(); db.close()
-    flash("Post published successfully and saved permanently.")
-    return redirect(url_for("staff_dashboard"))
-
-
-@app.route("/staff/edit/<post_id>", methods=["GET", "POST"])
-def edit_post(post_id):
-    if not staff_required(): return redirect(url_for("staff_login"))
-    if using_mongo():
-        from bson import ObjectId
-        try: post = mongo_db.posts.find_one({"_id": ObjectId(post_id)})
-        except Exception: post = None
-        if post is None: abort(404)
-        post["id"] = str(post["_id"]); post["image_mime"] = post.get("image_mime")
-    else:
-        try: legacy_id=int(post_id)
-        except ValueError: abort(404)
-        db=get_db(); post=db.execute("SELECT * FROM posts WHERE id=?",(legacy_id,)).fetchone(); db.close()
-        if post is None: abort(404)
-    if request.method == "POST":
-        title=request.form.get("title","").strip(); description=request.form.get("description","").strip()
-        if not title or not description:
-            flash("Title and description are required."); return redirect(url_for("edit_post",post_id=post_id))
-        try: image_data,image_mime=read_uploaded_image(required=False)
-        except ValueError as exc: flash(str(exc)); return redirect(url_for("edit_post",post_id=post_id))
-        if using_mongo():
-            from bson import ObjectId
-            update={"title":title,"description":description}
-            if image_data is not None:
-                if post.get("image_id"):
-                    try: mongo_fs.delete(post["image_id"])
-                    except Exception: pass
-                update["image_id"]=mongo_fs.put(image_data,contentType=image_mime,filename=secrets.token_hex(8)); update["image_mime"]=image_mime
-            mongo_db.posts.update_one({"_id":ObjectId(post_id)},{"$set":update})
-        else:
-            db=get_db()
-            if image_data is not None: db.execute("UPDATE posts SET title=?,description=?,image_data=?,image_mime=? WHERE id=?",(title,description,image_data,image_mime,int(post_id)))
-            else: db.execute("UPDATE posts SET title=?,description=? WHERE id=?",(title,description,int(post_id)))
-            db.commit(); db.close()
-        flash("Post updated successfully. Your changes are now saved."); return redirect(url_for("staff_dashboard"))
-    return render_template_string(EDIT_POST_HTML, post=post)
-
-
-@app.route("/staff/delete/<post_id>", methods=["POST"])
-def delete_post(post_id):
-    if not staff_required(): return redirect(url_for("staff_login"))
-    if using_mongo():
-        from bson import ObjectId
-        try: post=mongo_db.posts.find_one({"_id":ObjectId(post_id)})
-        except Exception: post=None
-        if post:
-            if post.get("image_id"):
-                try: mongo_fs.delete(post["image_id"])
-                except Exception: pass
-            mongo_db.posts.delete_one({"_id":post["_id"]})
-    else:
-        db=get_db(); db.execute("DELETE FROM posts WHERE id=?",(int(post_id),)); db.commit(); db.close()
-    flash("Post and its photo were deleted."); return redirect(url_for("staff_dashboard"))
-
-
-@app.route("/staff/viewers")
-def viewer_details():
-    if not staff_required():
-        return redirect(url_for("staff_login"))
-    viewers = []
-    total_views = 0
-    storage = "SQLite fallback"
-    if using_mongo():
-        viewers = list(mongo_db.viewers.find().sort("viewed_at", DESCENDING).limit(500))
-        total_views = mongo_db.viewers.count_documents({})
-        storage = "MongoDB"
-    else:
-        db = get_db()
-        rows = db.execute("SELECT * FROM viewers ORDER BY id DESC LIMIT 500").fetchall()
-        total_views = db.execute("SELECT COUNT(*) FROM viewers").fetchone()[0]
-        db.close()
-        viewers = [dict(row) for row in rows]
-    return render_template_string(
-        VIEWER_DETAILS_HTML, viewers=viewers, total_views=total_views,
-        mongo_enabled=using_mongo(), storage=storage
-    )
-
-
-STAFF_LOGIN_HTML = r"""
-<!DOCTYPE html>
+AUTH_HTML = r"""
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JHR Staff Login</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JHR | {{ title }}</title>
 <style>
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial;background:linear-gradient(135deg,#26083f,#7628d9,#ff4fcf)}
-.box{width:min(420px,90%);background:#fff;padding:35px;border-radius:25px;box-shadow:0 20px 60px #0005}
-h1{color:#7628d9} input,button{width:100%;padding:13px;margin:8px 0;box-sizing:border-box;border-radius:10px;border:1px solid #ddd} button{border:0;color:#fff;background:linear-gradient(135deg,#7628d9,#ff4fcf);font-weight:bold;cursor:pointer}.error{padding:10px;background:#ffe8ed;color:#a00;border-radius:10px}a{color:#7628d9}
-</style>
-</head>
-<body><div class="box"><h1>JHR Staff</h1><p>Manage Gallery, News and Announcements.</p>
-{% with messages=get_flashed_messages() %}{% for message in messages %}<div class="error">{{ message }}</div>{% endfor %}{% endwith %}
-<form method="POST"><input name="username" placeholder="Username" required><input name="password" type="password" placeholder="Password" required><button>Sign In</button></form>
-<p><a href="{{ url_for('home') }}">← Back to website</a></p></div></body></html>
-"""
-
-
-EDIT_POST_HTML = r"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Edit JHR Post</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533;text-align:center}.box{max-width:760px;margin:40px auto;padding:30px;background:#fff;border-radius:22px;box-shadow:0 10px 30px #3c145c1f}h1{color:#7628d9}label{display:block;font-weight:bold;margin-top:15px}label{display:block;text-align:center;font-weight:bold}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:7px 0 14px;font:inherit}textarea{min-height:160px;resize:vertical}button{padding:12px 20px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.cancel{display:inline-block;margin-left:10px;padding:12px 20px;border-radius:20px;background:#eee;color:#333;text-decoration:none}.current{margin:15px 0}.current img{max-width:320px;max-height:220px;object-fit:cover;border-radius:12px;display:block;margin-top:8px}.hint{color:#777;font-size:14px}.type{display:inline-block;background:#eee0ff;color:#7628d9;border-radius:20px;padding:7px 12px}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#2e1065,#7c3aed,#c026d3);padding:20px}.box{width:min(440px,100%);background:white;border-radius:24px;padding:35px;box-shadow:0 20px 60px rgba(0,0,0,.25)}h1{color:#4c1d95;margin-top:0}p{color:#6b5b82}.box input{width:100%;padding:14px;margin:7px 0 15px;border:1px solid #ded0ff;border-radius:12px}.box button{width:100%;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#c026d3);color:white;font-weight:800;cursor:pointer}.box a{display:block;text-align:center;margin-top:18px;color:#7c3aed;text-decoration:none;font-weight:700}.note{background:#ede9fe;padding:12px;border-radius:12px;margin-bottom:15px;color:#4c1d95;font-weight:700}
 </style>
 </head>
 <body>
 <div class="box">
-<span class="type">{{ post['section']|title }}</span>
-<h1>Edit Post</h1>
-<p class="hint">Fix the title or description below. You can also replace the current photo. Leave the photo field empty to keep the existing photo.</p>
-<form method="POST" enctype="multipart/form-data">
-<label>Title</label>
-<input name="title" maxlength="200" value="{{ post['title'] }}" required>
-<label>Description</label>
-<textarea name="description" maxlength="5000" required>{{ post['description'] }}</textarea>
-{% if post['image_mime'] %}
-<div class="current"><strong>Current photo:</strong><img src="{{ url_for('post_image', post_id=post['id']) }}" alt="Current photo"></div>
-{% endif %}
-<label>Replace Photo (optional)</label>
-<input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
-<button type="submit">Save Changes</button>
-<a class="cancel" href="{{ url_for('staff_dashboard') }}">Cancel</a>
+<h1>JHR {{ title }}</h1>
+<p>{{ message }}</p>
+{% with messages = get_flashed_messages() %}{% for msg in messages %}<div class="note">{{ msg }}</div>{% endfor %}{% endwith %}
+<form method="POST">
+<label>Username</label><input type="text" name="username" required autocomplete="username">
+<label>Password</label><input type="password" name="password" required autocomplete="current-password">
+<button type="submit">{{ action }}</button>
 </form>
+<a href="{{ url_for('home') }}">← Back to JHR</a>
 </div>
 </body>
 </html>
 """
 
+# =========================================================
+# STAFF LOGIN
+# =========================================================
 
-STAFF_DASHBOARD_HTML = r"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JHR Staff Dashboard</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533;text-align:center}header{padding:25px 5%;color:#fff;background:linear-gradient(135deg,#26083f,#7628d9,#ff4fcf)}header a{color:#fff;text-decoration:none;margin-right:20px}main{max-width:1200px;margin:auto;padding:30px 20px;text-align:center}.panel{background:#fff;border-radius:22px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px #3c145c1f}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:25px}.tabs a{padding:11px 17px;background:#7628d9;color:#fff;text-decoration:none;border-radius:20px}label{display:block;text-align:center;font-weight:bold}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:6px 0 14px;font:inherit}textarea{min-height:120px;resize:vertical}button{padding:11px 18px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.delete{background:#c62828}.edit{display:inline-block;padding:11px 18px;border-radius:20px;background:#7628d9;color:#fff;text-decoration:none;font-weight:bold;margin-right:6px}.actions{white-space:nowrap}.editbox{display:none;grid-column:1/-1;background:#faf7ff;border:1px solid #e5d5ff;border-radius:16px;padding:18px;margin-top:8px}.editbox:target{display:block}.editbox h4{margin-top:0;color:#7628d9}.editbox img{max-width:220px;max-height:150px;object-fit:cover;border-radius:10px;margin:8px 0}.editbox .save{background:#16834b}.editbox .cancel-edit{background:#777;text-decoration:none;color:#fff;display:inline-block;padding:11px 18px;border-radius:20px;margin-left:6px}.post{display:grid;grid-template-columns:180px 1fr auto;gap:20px;align-items:center;text-align:center;border-top:1px solid #eee;padding:18px 0}.post img{width:180px;height:120px;object-fit:cover;border-radius:12px}.post h3{color:#7628d9;margin:0}.muted{color:#777}.flash{padding:12px;background:#e8fff0;color:#146b35;border-radius:10px;margin-bottom:15px}@media(max-width:700px){.post{grid-template-columns:1fr}.post img{width:100%;height:220px}}
-</style>
-</head>
-<body>
-<header><h1>JHR Staff Dashboard</h1><p>Upload and manage website content.</p><a href="{{ url_for('home') }}">View Website</a><a href="{{ url_for('viewer_details') }}">👁️ Detailed Viewers</a><a href="{{ url_for('staff_logout') }}">Logout</a></header>
-<main>
-{% with messages=get_flashed_messages() %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
-<div class="tabs"><a href="#gallery">📸 Gallery</a><a href="#news">📰 News</a></div>
+def staff_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff_id"):
+            return redirect(url_for("login"))
 
-<section class="panel" id="gallery"><h2>📸 Gallery</h2><p>Gallery requires an image, title and description. You can permanently delete old photos below.</p>
-<form method="POST" action="{{ url_for('add_post', section='gallery') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required><button>Upload Gallery Photo</button></form>
-{% for post in gallery %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div><div class="editbox" id="edit-{{ post['id'] }}"><h4>✏️ Edit this post</h4><form method="POST" action="{{ url_for('edit_post',post_id=post['id']) }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" value="{{ post['title'] }}" required><label>Description</label><textarea name="description" maxlength="5000" required>{{ post['description'] }}</textarea>{% if post['image_mime'] %}<strong>Current photo:</strong><br><img src="{{ url_for('post_image',post_id=post['id']) }}" alt="Current photo"><br>{% endif %}<label>Replace Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button class="save" type="submit">💾 Save Changes</button><a class="cancel-edit" href="#">Cancel</a></form></div></div>{% else %}<p class="muted">No gallery posts yet.</p>{% endfor %}
-</section>
+        last_activity = session.get("staff_last_activity")
+        if not last_activity or time.time() - float(last_activity) > STAFF_SESSION_TIMEOUT.total_seconds():
+            session.clear()
+            flash("Your staff session expired after 5 minutes of inactivity. Please log in again.")
+            return redirect(url_for("login"))
 
-<section class="panel" id="news"><h2>📰📢 News & Announcements</h2>
-<p>News and announcements are managed together here. You can upload, edit, replace photos, or delete posts.</p>
-<form method="POST" action="{{ url_for('add_post', section='news') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button>Publish News / Announcement</button></form>
-{% for post in news %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><div class="post-type">{% if post['section'] == 'announcement' %}ANNOUNCEMENT{% else %}NEWS{% endif %}</div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div></div>{% else %}<p class="muted">No news or announcements yet.</p>{% endfor %}
-</section>
-</main></body></html>
-"""
+        session.permanent = True
+        session["staff_last_activity"] = time.time()
+        return view(*args, **kwargs)
+    return wrapped
 
 
-def open_browser():
-    webbrowser.open("http://127.0.0.1:5000")
+@app.before_request
+def expire_staff_session():
+    """Expire staff sessions even when the requested route is public."""
+    if not session.get("staff_id"):
+        return
+
+    last_activity = session.get("staff_last_activity")
+    if not last_activity:
+        session.clear()
+        return
+
+    if time.time() - float(last_activity) > STAFF_SESSION_TIMEOUT.total_seconds():
+        session.clear()
+        if request.endpoint not in {"login", "logout"}:
+            flash("Your staff session expired after 5 minutes of inactivity. Please log in again.")
 
 
-VIEWER_DETAILS_HTML = r"""
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JHR Detailed Viewers</title><style>body{font-family:Arial;margin:0;background:#f6f1fb;color:#24152f}header{background:linear-gradient(135deg,#26083f,#7628d9);color:white;padding:28px;text-align:center}main{max-width:1400px;margin:25px auto;padding:0 15px}.back{display:inline-block;margin:10px 0 20px;padding:12px 20px;background:#7628d9;color:white;text-decoration:none;border-radius:12px}table{width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 25px #0001}th,td{padding:12px;border-bottom:1px solid #eee;text-align:center;vertical-align:top}th{background:#eee6f7}small{color:#666}.empty{text-align:center;padding:50px;background:white;border-radius:16px}</style></head><body><header><h1>👁️ Detailed Viewer Information</h1><p>Recent website visits recorded by JHR.</p></header><main><a class="back" href="{{ url_for('staff_dashboard') }}">← Back to Staff Dashboard</a><div style="background:white;border-radius:16px;padding:24px;margin:10px 0 22px;text-align:center;box-shadow:0 8px 25px #0001"><div style="font-size:18px">👁️ Total Page Views</div><div style="font-size:46px;font-weight:800;color:#7628d9">{{ total_views }}</div><small>Storage: {{ storage }}</small></div>{% if viewers %}<div style="overflow-x:auto"><table><tr><th>Date / Time</th><th>IP Address</th><th>Device</th><th>Browser</th><th>Location</th><th>Page</th><th>Referrer</th></tr>{% for v in viewers %}<tr><td>{{ v.get('viewed_at','') }}</td><td>{{ v.get('ip','Unknown') }}</td><td>{{ v.get('device','Unknown') }}</td><td>{{ v.get('browser','Unknown') }}</td><td>{{ v.get('city','Unknown') }}, {{ v.get('region','') }}<br>{{ v.get('country','Unknown') }}</td><td>{{ v.get('path','/') }}</td><td>{{ v.get('referrer','Direct') }}</td></tr>{% endfor %}</table></div>{% else %}<div class="empty"><h2>No viewers recorded yet.</h2><p>Visits will appear here as people visit the website.</p></div>{% endif %}</main></body></html>
-"""
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
+        staff = staff_accounts_collection.find_one({"username": username})
+
+        if staff and check_password_hash(staff.get("password", ""), password):
+            session.clear()
+            session.permanent = True
+            session["staff_id"] = str(staff["_id"])
+            session["staff_username"] = staff.get("username", username)
+            session["staff_last_activity"] = time.time()
+            flash("Welcome, " + staff.get("username", username) + "!")
+            return redirect(url_for("home"))
+
+        flash("Invalid staff username or password.")
+
+    return render_template_string(
+        AUTH_HTML,
+        title="Staff Login",
+        action="Login",
+        message="Log in to manage gallery pictures, messages, and news."
+    )
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("home"))
+
+
+@app.route("/staff/heartbeat", methods=["POST"])
+@staff_required
+def staff_heartbeat():
+    return ("", 204)
+
+
+# =========================================================
+# GALLERY UPLOAD
+# =========================================================
+
+@app.route("/gallery/upload", methods=["POST"])
+@staff_required
+def upload_gallery():
+    """Upload gallery images and save their metadata safely."""
+    files = request.files.getlist("images")
+
+    if not files:
+        flash("No picture was selected.")
+        return redirect(url_for("home") + "#gallery")
+
+    # Make sure the upload directory exists on every request. This is
+    # especially useful on fresh Render instances.
+    os.makedirs(GALLERY_FOLDER, exist_ok=True)
+
+    added = 0
+    skipped = []
+
+    for index, image in enumerate(files):
+        original_name = (image.filename or "").strip()
+
+        if not original_name:
+            skipped.append("an unnamed file")
+            continue
+
+        if not allowed_file(original_name):
+            skipped.append(original_name)
+            continue
+
+        filename = secure_filename(original_name)
+        if not filename:
+            skipped.append(original_name)
+            continue
+
+        base, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        # Always create a unique server-side filename. This prevents an
+        # existing upload from overwriting another picture.
+        candidate = f"{base}_{uuid4().hex[:10]}{ext}"
+        filepath = os.path.join(GALLERY_FOLDER, candidate)
+
+        title = request.form.get(f"title_{index}", "").strip()[:160]
+        description = request.form.get(f"description_{index}", "").strip()[:2000]
+
+        if not title:
+            title = os.path.splitext(original_name)[0][:160]
+        if not description:
+            description = "Imported picture"
+
+        try:
+            # Reset the stream in case the request middleware has inspected it.
+            image.stream.seek(0)
+            image.save(filepath)
+
+            if not os.path.isfile(filepath) or os.path.getsize(filepath) == 0:
+                raise OSError("The uploaded file was not saved correctly.")
+
+            gallery_collection.insert_one({
+                "filename": candidate,
+                "original_filename": original_name,
+                "title": title,
+                "description": description,
+                "created_at": now_string(),
+                "author_id": session.get("staff_id")
+            })
+            added += 1
+
+        except Exception as exc:
+            # Remove a partially saved file if MongoDB or the filesystem fails.
+            try:
+                if os.path.isfile(filepath):
+                    os.remove(filepath)
+            except OSError:
+                pass
+            skipped.append(original_name)
+            app.logger.exception("Gallery upload failed for %s: %s", original_name, exc)
+
+    if added:
+        message = f"{added} picture(s) imported into the gallery successfully."
+        if skipped:
+            message += f" {len(skipped)} file(s) were skipped."
+        flash(message)
+    else:
+        flash("No pictures were uploaded. Please select JPG, JPEG, PNG, WEBP, or GIF files and try again.")
+
+    return redirect(url_for("home") + "#gallery")
+
+
+# =========================================================
+# NEWS / ANNOUNCEMENT IMAGE UPLOAD
+# =========================================================
+
+@app.route("/news-image/<path:filename>")
+def news_image(filename):
+    return uploaded_image_response(NEWS_FOLDER, filename)
+
+# =========================================================
+# FREE CODING CLASS MESSAGES
+# =========================================================
+
+
+# =========================================================
+# FREE CODING CLASS MESSAGES
+# =========================================================
+
+@app.route("/coding-class-message", methods=["POST"])
+def coding_class_message():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    message = request.form.get("message", "").strip()
+
+    if not name or not email or not message:
+        flash("Please fill in your name, email, and message.")
+        return redirect(url_for("home") + "#coding-classes")
+
+    if len(name) > 120 or len(email) > 200 or len(message) > 5000:
+        flash("Please keep your name, email, and message within the allowed length.")
+        return redirect(url_for("home") + "#coding-classes")
+
+    class_messages_collection.insert_one({
+        "name": name,
+        "email": email,
+        "message": message,
+        "created_at": now_string()
+    })
+
+    flash("Your message was sent to the JHR staff.")
+    return redirect(url_for("home") + "#coding-classes")
+
+
+# =========================================================
+# STAFF DASHBOARD
+# =========================================================
+
+@app.route("/staff")
+@staff_required
+def staff_dashboard():
+    messages = [
+        normalize_message(doc)
+        for doc in class_messages_collection.find().sort("created_at", -1)
+    ]
+
+    staff_accounts = [
+        normalize_staff(doc)
+        for doc in staff_accounts_collection.find().sort("username", 1)
+    ]
+    viewers = detailed_viewers()
+
+    return render_template_string(
+        STAFF_DASHBOARD_HTML,
+        messages=messages,
+        staff_accounts=staff_accounts,
+        news_items=news_items(),
+        viewers=viewers,
+        viewer_total=len(viewers),
+        viewer_views=sum(item["total_views"] for item in viewers),
+        staff_username=session.get("staff_username")
+    )
+
+
+@app.route("/staff/change-password", methods=["POST"])
+@staff_required
+def change_staff_password():
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if len(new_password) < 6:
+        flash("New password must be at least 6 characters.")
+        return redirect(url_for("staff_dashboard"))
+
+    if new_password != confirm_password:
+        flash("New passwords do not match.")
+        return redirect(url_for("staff_dashboard"))
+
+    try:
+        staff = staff_accounts_collection.find_one({"_id": ObjectId(session["staff_id"])})
+    except (InvalidId, TypeError):
+        staff = None
+
+    if not staff or not check_password_hash(staff.get("password", ""), current_password):
+        flash("Current password is incorrect.")
+        return redirect(url_for("staff_dashboard"))
+
+    staff_accounts_collection.update_one(
+        {"_id": staff["_id"]},
+        {"$set": {"password": generate_password_hash(new_password)}}
+    )
+
+    flash("Your staff password has been changed.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/add-account", methods=["POST"])
+@staff_required
+def add_staff_account():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if len(username) < 3:
+        flash("Staff username must be at least 3 characters.")
+        return redirect(url_for("staff_dashboard"))
+    if len(username) > 80:
+        flash("Staff username is too long.")
+        return redirect(url_for("staff_dashboard"))
+    if len(password) < 6:
+        flash("Staff password must be at least 6 characters.")
+        return redirect(url_for("staff_dashboard"))
+    if password != confirm_password:
+        flash("New staff passwords do not match.")
+        return redirect(url_for("staff_dashboard"))
+
+    try:
+        staff_accounts_collection.insert_one({
+            "username": username,
+            "password": generate_password_hash(password),
+            "created_at": now_string()
+        })
+    except DuplicateKeyError:
+        flash("That staff username already exists.")
+        return redirect(url_for("staff_dashboard"))
+
+    flash("New staff account created.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/delete-message/<message_id>", methods=["POST"])
+@staff_required
+def delete_staff_message(message_id):
+    try:
+        result = class_messages_collection.delete_one({"_id": ObjectId(message_id)})
+    except (InvalidId, TypeError):
+        result = None
+
+    if result and result.deleted_count:
+        flash("Message deleted successfully.")
+    else:
+        flash("Message not found.")
+
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/add-news", methods=["POST"])
+@staff_required
+def add_news_item():
+    kind = request.form.get("kind", "Announcement").strip()
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    uploaded_files = request.files.getlist("news_images")
+
+    if kind not in {"News", "Announcement"}:
+        kind = "Announcement"
+
+    if not title or not content:
+        flash("Please enter a title and message.")
+        return redirect(url_for("staff_dashboard"))
+
+    if len(title) > 160 or len(content) > 10000:
+        flash("The news title or content is too long.")
+        return redirect(url_for("staff_dashboard"))
+
+    try:
+        author_id = ObjectId(session["staff_id"])
+    except (InvalidId, TypeError):
+        flash("Your staff session is invalid. Please log in again.")
+        session.clear()
+        return redirect(url_for("login"))
+
+    image_names = []
+
+    for image in uploaded_files:
+        if not image or not image.filename or not allowed_file(image.filename):
+            continue
+
+        filename = secure_filename(image.filename)
+        if not filename:
+            continue
+
+        base, ext = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+
+        while os.path.exists(os.path.join(NEWS_FOLDER, candidate)):
+            candidate = f"{base}_{counter}{ext}"
+            counter += 1
+
+        image.save(os.path.join(NEWS_FOLDER, candidate))
+        image_names.append(candidate)
+
+    news_collection.insert_one({
+        "kind": kind,
+        "title": title,
+        "content": content,
+        "images": image_names,
+        "created_at": now_string(),
+        "author_id": str(author_id)
+    })
+
+    flash(f"{kind} published successfully.")
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/delete-news/<news_id>", methods=["POST"])
+@staff_required
+def delete_news_item(news_id):
+    try:
+        object_id = ObjectId(news_id)
+        document = news_collection.find_one({"_id": object_id})
+    except (InvalidId, TypeError):
+        document = None
+
+    if not document:
+        flash("News/announcement not found.")
+        return redirect(url_for("staff_dashboard"))
+
+    for filename in document.get("images", []):
+        safe_name = os.path.basename(filename)
+        filepath = os.path.join(NEWS_FOLDER, safe_name)
+        if os.path.isfile(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+
+    result = news_collection.delete_one({"_id": document["_id"]})
+
+    if result.deleted_count:
+        flash("News/announcement deleted.")
+    else:
+        flash("News/announcement could not be deleted.")
+
+    return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/gallery-image/<path:filename>")
+def uploaded_gallery_image(filename):
+    return uploaded_image_response(GALLERY_FOLDER, filename)
+
+# =========================================================
+# HEALTH
+# =========================================================
+
+@app.route("/health")
+def health():
+    try:
+        mongo_client.admin.command("ping")
+        return "JHR is running! MongoDB is connected.", 200
+    except PyMongoError:
+        return "JHR is running, but MongoDB is unavailable.", 503
+
+
+# =========================================================
+# PHOTO CHECK
+# =========================================================
+
+@app.route("/photo-check")
+def photo_check():
+
+    files = [
+
+        "OfficialLogo.png",
+
+        "Owner1.jpg",
+
+        "Owner2.png",
+
+        "IMG_0884.jpg",
+
+        "IMG_0884.jpeg",
+
+        "IMG_0884.png",
+
+        "IMG_5798.jpg",
+
+        "IMG_5798.jpeg",
+
+        "IMG_5798.png",
+
+        "IMG_12345.jpg",
+
+        "IMG_12345.jpeg",
+
+        "IMG_12345.png",
+
+        "IMG_12345.webp",
+
+    ]
+
+    output = [
+        "<h1>JHR Photo Check</h1>"
+    ]
+
+
+    found_bases = set()
+
+
+    for filename in files:
+
+        path = os.path.join(
+            app.static_folder,
+            filename
+        )
+
+
+        if os.path.isfile(path):
+
+            output.append(
+                f"✅ {filename} — FOUND"
+            )
+
+            found_bases.add(
+                os.path.splitext(filename)[0]
+            )
+
+
+    expected = [
+        "OfficialLogo",
+        "Owner1",
+        "Owner2",
+        "IMG_0884",
+        "IMG_5798",
+        "IMG_12345",
+    ]
+
+
+    for base in expected:
+
+        if base not in found_bases:
+
+            output.append(
+                f"❌ {base} — NOT FOUND"
+            )
+
+
+    return "<br>".join(output)
+
+
+# =========================================================
+# START SERVER
+# =========================================================
 
 if __name__ == "__main__":
 
-    print("=" * 60)
-    print("                    JHR")
-    print("       EMPOWERMENT THROUGH TECHNOLOGY")
-    print("=" * 60)
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
 
-    print()
-    print("Website is starting...")
-    print()
-    print("Open:")
-    print("http://127.0.0.1:5000")
-    print()
-    print("Press CTRL+C to stop.")
-    print()
-
-    threading.Timer(
-        1.5,
-        open_browser
-    ).start()
 
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
+        port=port,
         debug=False
     )
