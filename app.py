@@ -115,7 +115,9 @@ viewers_collection = mongo_db["viewers"]
 
 staff_accounts_collection.create_index("username", unique=True)
 gallery_collection.create_index("filename", unique=True)
-viewers_collection.create_index("viewer_id", unique=True)
+# Viewer IDs are generated for new visitors, but older records may not have a viewer_id.
+# Keep this index non-unique so legacy null/missing viewer_id records cannot crash startup.
+viewers_collection.create_index("viewer_id", name="viewer_id_lookup", unique=False)
 viewers_collection.create_index([("last_seen", -1)])
 
 
