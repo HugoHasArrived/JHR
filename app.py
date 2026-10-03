@@ -90,6 +90,17 @@ def get_posts(section):
     return rows
 
 
+def get_news_updates():
+    """News and announcements are displayed and managed as one combined feed."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, section, title, description, image_mime, created_at "
+        "FROM posts WHERE section IN ('news','announcement') ORDER BY id DESC"
+    ).fetchall()
+    db.close()
+    return rows
+
+
 init_db()
 
 HTML = r"""
@@ -138,6 +149,8 @@ body {
     color: var(--text);
     line-height: 1.7;
     overflow-x: hidden;
+
+    text-align: center;
 }
 
 /* =========================
@@ -447,6 +460,29 @@ body.dark .logo img {
     margin: auto;
     padding: 90px 25px;
 }
+
+/* Center-align the JHR website content */
+.section, .color-section, .games, footer, header {
+    text-align: center;
+}
+.cards, .mission, .post-grid {
+    justify-items: center;
+}
+.post-card {
+    text-align: center;
+}
+.post-body {
+    width: 100%;
+}
+.post-type {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    color: var(--purple);
+}
+
 
 .title {
     text-align: center;
@@ -1031,8 +1067,7 @@ alt="JHR Logo"
 <a href="#experience">Experience</a>
 <a href="#owners">Owners</a>
 <a href="#gallery">Gallery</a>
-<a href="#news">News</a>
-<a href="#announcements">Announcements</a>
+<a href="#news">News & Announcements</a>
 <a href="#games">Games</a>
 <a href="#contact">Contact</a>
 <a href="{{ url_for('staff_login') }}">Staff</a>
@@ -1533,13 +1568,13 @@ The co-founder supports JHR's projects, creativity and technology activities. To
 
 
 <!-- =========================
-     NEWS
+     NEWS & ANNOUNCEMENTS
 ========================= -->
 
 <section class="section" id="news">
 
-<h2 class="title">JHR News 📰</h2>
-<p class="subtitle">Latest JHR news and updates.</p>
+<h2 class="title">JHR News & Announcements 📰📢</h2>
+<p class="subtitle">Latest JHR news, updates, and important announcements.</p>
 
 {% if news %}
 <div class="post-grid">
@@ -1548,9 +1583,10 @@ The co-founder supports JHR's projects, creativity and technology activities. To
 {% if post["image_mime"] %}
 <img class="post-image" src="{{ url_for('post_image', post_id=post['id']) }}" alt="{{ post['title'] }}">
 {% else %}
-<div class="post-no-image">📰</div>
+<div class="post-no-image">{% if post["section"] == "announcement" %}📢{% else %}📰{% endif %}</div>
 {% endif %}
 <div class="post-body">
+<div class="post-type">{% if post["section"] == "announcement" %}ANNOUNCEMENT{% else %}NEWS{% endif %}</div>
 <h3>{{ post["title"] }}</h3>
 <div class="post-date">{{ post["created_at"] }}</div>
 <p>{{ post["description"] }}</p>
@@ -1559,40 +1595,7 @@ The co-founder supports JHR's projects, creativity and technology activities. To
 {% endfor %}
 </div>
 {% else %}
-<div class="empty-posts">No news has been posted yet.</div>
-{% endif %}
-
-</section>
-
-
-<!-- =========================
-     ANNOUNCEMENTS
-========================= -->
-
-<section class="section" id="announcements">
-
-<h2 class="title">Announcements 📢</h2>
-<p class="subtitle">Important JHR announcements.</p>
-
-{% if announcements %}
-<div class="post-grid">
-{% for post in announcements %}
-<article class="post-card">
-{% if post["image_mime"] %}
-<img class="post-image" src="{{ url_for('post_image', post_id=post['id']) }}" alt="{{ post['title'] }}">
-{% else %}
-<div class="post-no-image">📢</div>
-{% endif %}
-<div class="post-body">
-<h3>{{ post["title"] }}</h3>
-<div class="post-date">{{ post["created_at"] }}</div>
-<p>{{ post["description"] }}</p>
-</div>
-</article>
-{% endfor %}
-</div>
-{% else %}
-<div class="empty-posts">No announcements have been posted yet.</div>
+<div class="empty-posts">No news or announcements have been posted yet.</div>
 {% endif %}
 
 </section>
@@ -2200,8 +2203,7 @@ def home():
     return render_template_string(
         HTML,
         gallery=get_posts("gallery"),
-        news=get_posts("news"),
-        announcements=get_posts("announcement")
+        news=get_news_updates()
     )
 
 
@@ -2258,8 +2260,7 @@ def staff_dashboard():
     return render_template_string(
         STAFF_DASHBOARD_HTML,
         gallery=get_posts("gallery"),
-        news=get_posts("news"),
-        announcements=get_posts("announcement")
+        news=get_news_updates()
     )
 
 
@@ -2415,7 +2416,7 @@ EDIT_POST_HTML = r"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Edit JHR Post</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533}.box{max-width:760px;margin:40px auto;padding:30px;background:#fff;border-radius:22px;box-shadow:0 10px 30px #3c145c1f}h1{color:#7628d9}label{display:block;font-weight:bold;margin-top:15px}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:7px 0 14px;font:inherit}textarea{min-height:160px;resize:vertical}button{padding:12px 20px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.cancel{display:inline-block;margin-left:10px;padding:12px 20px;border-radius:20px;background:#eee;color:#333;text-decoration:none}.current{margin:15px 0}.current img{max-width:320px;max-height:220px;object-fit:cover;border-radius:12px;display:block;margin-top:8px}.hint{color:#777;font-size:14px}.type{display:inline-block;background:#eee0ff;color:#7628d9;border-radius:20px;padding:7px 12px}
+*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533;text-align:center}.box{max-width:760px;margin:40px auto;padding:30px;background:#fff;border-radius:22px;box-shadow:0 10px 30px #3c145c1f}h1{color:#7628d9}label{display:block;font-weight:bold;margin-top:15px}label{display:block;text-align:center;font-weight:bold}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:7px 0 14px;font:inherit}textarea{min-height:160px;resize:vertical}button{padding:12px 20px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.cancel{display:inline-block;margin-left:10px;padding:12px 20px;border-radius:20px;background:#eee;color:#333;text-decoration:none}.current{margin:15px 0}.current img{max-width:320px;max-height:220px;object-fit:cover;border-radius:12px;display:block;margin-top:8px}.hint{color:#777;font-size:14px}.type{display:inline-block;background:#eee0ff;color:#7628d9;border-radius:20px;padding:7px 12px}
 </style>
 </head>
 <body>
@@ -2450,28 +2451,24 @@ STAFF_DASHBOARD_HTML = r"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JHR Staff Dashboard</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533}header{padding:25px 5%;color:#fff;background:linear-gradient(135deg,#26083f,#7628d9,#ff4fcf)}header a{color:#fff;text-decoration:none;margin-right:20px}main{max-width:1200px;margin:auto;padding:30px 20px}.panel{background:#fff;border-radius:22px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px #3c145c1f}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:25px}.tabs a{padding:11px 17px;background:#7628d9;color:#fff;text-decoration:none;border-radius:20px}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:6px 0 14px;font:inherit}textarea{min-height:120px;resize:vertical}button{padding:11px 18px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.delete{background:#c62828}.edit{display:inline-block;padding:11px 18px;border-radius:20px;background:#7628d9;color:#fff;text-decoration:none;font-weight:bold;margin-right:6px}.actions{white-space:nowrap}.editbox{display:none;grid-column:1/-1;background:#faf7ff;border:1px solid #e5d5ff;border-radius:16px;padding:18px;margin-top:8px}.editbox:target{display:block}.editbox h4{margin-top:0;color:#7628d9}.editbox img{max-width:220px;max-height:150px;object-fit:cover;border-radius:10px;margin:8px 0}.editbox .save{background:#16834b}.editbox .cancel-edit{background:#777;text-decoration:none;color:#fff;display:inline-block;padding:11px 18px;border-radius:20px;margin-left:6px}.post{display:grid;grid-template-columns:180px 1fr auto;gap:20px;align-items:center;border-top:1px solid #eee;padding:18px 0}.post img{width:180px;height:120px;object-fit:cover;border-radius:12px}.post h3{color:#7628d9;margin:0}.muted{color:#777}.flash{padding:12px;background:#e8fff0;color:#146b35;border-radius:10px;margin-bottom:15px}@media(max-width:700px){.post{grid-template-columns:1fr}.post img{width:100%;height:220px}}
+*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f7f1ff;color:#261533;text-align:center}header{padding:25px 5%;color:#fff;background:linear-gradient(135deg,#26083f,#7628d9,#ff4fcf)}header a{color:#fff;text-decoration:none;margin-right:20px}main{max-width:1200px;margin:auto;padding:30px 20px;text-align:center}.panel{background:#fff;border-radius:22px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px #3c145c1f}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:25px}.tabs a{padding:11px 17px;background:#7628d9;color:#fff;text-decoration:none;border-radius:20px}label{display:block;text-align:center;font-weight:bold}input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:6px 0 14px;font:inherit}textarea{min-height:120px;resize:vertical}button{padding:11px 18px;border:0;border-radius:20px;background:#7628d9;color:#fff;font-weight:bold;cursor:pointer}.delete{background:#c62828}.edit{display:inline-block;padding:11px 18px;border-radius:20px;background:#7628d9;color:#fff;text-decoration:none;font-weight:bold;margin-right:6px}.actions{white-space:nowrap}.editbox{display:none;grid-column:1/-1;background:#faf7ff;border:1px solid #e5d5ff;border-radius:16px;padding:18px;margin-top:8px}.editbox:target{display:block}.editbox h4{margin-top:0;color:#7628d9}.editbox img{max-width:220px;max-height:150px;object-fit:cover;border-radius:10px;margin:8px 0}.editbox .save{background:#16834b}.editbox .cancel-edit{background:#777;text-decoration:none;color:#fff;display:inline-block;padding:11px 18px;border-radius:20px;margin-left:6px}.post{display:grid;grid-template-columns:180px 1fr auto;gap:20px;align-items:center;text-align:center;border-top:1px solid #eee;padding:18px 0}.post img{width:180px;height:120px;object-fit:cover;border-radius:12px}.post h3{color:#7628d9;margin:0}.muted{color:#777}.flash{padding:12px;background:#e8fff0;color:#146b35;border-radius:10px;margin-bottom:15px}@media(max-width:700px){.post{grid-template-columns:1fr}.post img{width:100%;height:220px}}
 </style>
 </head>
 <body>
 <header><h1>JHR Staff Dashboard</h1><p>Upload and manage website content.</p><a href="{{ url_for('home') }}">View Website</a><a href="{{ url_for('staff_logout') }}">Logout</a></header>
 <main>
 {% with messages=get_flashed_messages() %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
-<div class="tabs"><a href="#gallery">📸 Gallery</a><a href="#news">📰 News</a><a href="#announcements">📢 Announcements</a></div>
+<div class="tabs"><a href="#gallery">📸 Gallery</a><a href="#news">📰 News</a></div>
 
 <section class="panel" id="gallery"><h2>📸 Gallery</h2><p>Gallery requires an image, title and description. You can permanently delete old photos below.</p>
 <form method="POST" action="{{ url_for('add_post', section='gallery') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required><button>Upload Gallery Photo</button></form>
 {% for post in gallery %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div><div class="editbox" id="edit-{{ post['id'] }}"><h4>✏️ Edit this post</h4><form method="POST" action="{{ url_for('edit_post',post_id=post['id']) }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" value="{{ post['title'] }}" required><label>Description</label><textarea name="description" maxlength="5000" required>{{ post['description'] }}</textarea>{% if post['image_mime'] %}<strong>Current photo:</strong><br><img src="{{ url_for('post_image',post_id=post['id']) }}" alt="Current photo"><br>{% endif %}<label>Replace Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button class="save" type="submit">💾 Save Changes</button><a class="cancel-edit" href="#">Cancel</a></form></div></div>{% else %}<p class="muted">No gallery posts yet.</p>{% endfor %}
 </section>
 
-<section class="panel" id="news"><h2>📰 News</h2>
-<form method="POST" action="{{ url_for('add_post', section='news') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button>Publish News</button></form>
-{% for post in news %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div><div class="editbox" id="edit-{{ post['id'] }}"><h4>✏️ Edit this post</h4><form method="POST" action="{{ url_for('edit_post',post_id=post['id']) }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" value="{{ post['title'] }}" required><label>Description</label><textarea name="description" maxlength="5000" required>{{ post['description'] }}</textarea>{% if post['image_mime'] %}<strong>Current photo:</strong><br><img src="{{ url_for('post_image',post_id=post['id']) }}" alt="Current photo"><br>{% endif %}<label>Replace Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button class="save" type="submit">💾 Save Changes</button><a class="cancel-edit" href="#">Cancel</a></form></div></div>{% else %}<p class="muted">No news posts yet.</p>{% endfor %}
-</section>
-
-<section class="panel" id="announcements"><h2>📢 Announcements</h2>
-<form method="POST" action="{{ url_for('add_post', section='announcement') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button>Publish Announcement</button></form>
-{% for post in announcements %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div><div class="editbox" id="edit-{{ post['id'] }}"><h4>✏️ Edit this post</h4><form method="POST" action="{{ url_for('edit_post',post_id=post['id']) }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" value="{{ post['title'] }}" required><label>Description</label><textarea name="description" maxlength="5000" required>{{ post['description'] }}</textarea>{% if post['image_mime'] %}<strong>Current photo:</strong><br><img src="{{ url_for('post_image',post_id=post['id']) }}" alt="Current photo"><br>{% endif %}<label>Replace Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button class="save" type="submit">💾 Save Changes</button><a class="cancel-edit" href="#">Cancel</a></form></div></div>{% else %}<p class="muted">No announcements yet.</p>{% endfor %}
+<section class="panel" id="news"><h2>📰📢 News & Announcements</h2>
+<p>News and announcements are managed together here. You can upload, edit, replace photos, or delete posts.</p>
+<form method="POST" action="{{ url_for('add_post', section='news') }}" enctype="multipart/form-data"><label>Title</label><input name="title" maxlength="200" required><label>Description</label><textarea name="description" maxlength="5000" required></textarea><label>Photo (optional)</label><input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"><button>Publish News / Announcement</button></form>
+{% for post in news %}<div class="post">{% if post['image_mime'] %}<img src="{{ url_for('post_image',post_id=post['id']) }}" alt="{{ post['title'] }}">{% endif %}<div><div class="post-type">{% if post['section'] == 'announcement' %}ANNOUNCEMENT{% else %}NEWS{% endif %}</div><h3>{{ post['title'] }}</h3><p class="muted">{{ post['created_at'] }}</p><p>{{ post['description'] }}</p></div><div class="actions"><a class="edit" href="{{ url_for('edit_post', post_id=post['id']) }}">✏️ Edit</a><form method="POST" action="{{ url_for('delete_post',post_id=post['id']) }}" style="display:inline"><button class="delete" type="submit" onclick="return confirm('Are you sure you want to permanently delete this post? This cannot be undone.')">🗑️ Delete</button></form></div></div>{% else %}<p class="muted">No news or announcements yet.</p>{% endfor %}
 </section>
 </main></body></html>
 """
