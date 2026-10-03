@@ -245,16 +245,23 @@ def now_string():
 def init_mongodb():
     # Default staff login:
     # username = admin
-    # password = admin123
-    if not staff_accounts_collection.find_one({"username": "admin"}):
+    # password = ChangeMe123!
+    admin_account = staff_accounts_collection.find_one({"username": "admin"})
+    if not admin_account:
         try:
             staff_accounts_collection.insert_one({
                 "username": "admin",
-                "password": generate_password_hash("admin123"),
+                "password": generate_password_hash("ChangeMe123!"),
                 "created_at": now_string()
             })
         except DuplicateKeyError:
             pass
+    else:
+        # Keep the requested default admin password active for the existing admin account.
+        staff_accounts_collection.update_one(
+            {"_id": admin_account["_id"]},
+            {"$set": {"password": generate_password_hash("ChangeMe123!")}}
+        )
 
 
 def allowed_file(filename):
@@ -2523,6 +2530,62 @@ body.dark .gallery-upload input[type=file] { background: rgba(20,20,35,.7); }
 }
 .gallery-caption h3 { margin-bottom: 8px; }
 .gallery-caption p { color: var(--muted); line-height: 1.65; }
+.gallery-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+.gallery-card .gallery-image-link {
+    width: 100%;
+    flex: 0 0 auto;
+}
+.gallery-card .gallery-caption {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    box-sizing: border-box;
+    border-radius: 0 0 22px 22px;
+}
+.gallery-card.uploaded-gallery-card {
+    overflow: hidden;
+}
+.gallery-card.uploaded-gallery-card .gallery-caption {
+    min-height: 180px;
+}
+.gallery-delete-form {
+    margin-top: auto !important;
+}
+.gallery-card .gallery-caption h3,
+.gallery-card .gallery-caption p {
+    width: 100%;
+    box-sizing: border-box;
+}
+.gallery-delete-form {
+    width: 100%;
+    margin-top: auto;
+    padding-top: 16px;
+}
+.gallery-delete-button {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #dc2626, #be123c);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.gallery-delete-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(190,18,60,.25);
+    opacity: .95;
+}
+
 @media (max-width: 900px) {
     .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -2977,6 +3040,11 @@ GALLERY
     <div class="gallery-caption">
         <h3>📷 {{ image["title"] }}</h3>
         <p>{{ image["description"] }}</p>
+        {% if session.get("staff_id") %}
+        <form method="POST" action="{{ url_for('delete_gallery_image', image_id=image['id']) }}" class="gallery-delete-form" onsubmit="return confirm('Delete this gallery photo? This cannot be undone.');">
+            <button type="submit" class="gallery-delete-button">🗑️ Delete Photo</button>
+        </form>
+        {% endif %}
     </div>
 </div>
 {% endfor %}
@@ -4981,6 +5049,37 @@ def delete_news_item(news_id):
         flash("News/announcement could not be deleted.")
 
     return redirect(url_for("staff_dashboard"))
+
+
+@app.route("/staff/delete-gallery/<image_id>", methods=["POST"])
+@staff_required
+def delete_gallery_image(image_id):
+    """Delete an imported gallery image and its MongoDB metadata."""
+    try:
+        document = gallery_collection.find_one({"_id": ObjectId(image_id)})
+    except (InvalidId, TypeError):
+        document = None
+
+    if not document:
+        flash("Gallery photo not found.")
+        return redirect(url_for("home") + "#gallery")
+
+    filename = os.path.basename(document.get("filename", ""))
+    if filename:
+        filepath = os.path.join(GALLERY_FOLDER, filename)
+        if os.path.isfile(filepath):
+            try:
+                os.remove(filepath)
+            except OSError as exc:
+                app.logger.warning("Could not remove gallery file %s: %s", filepath, exc)
+
+    result = gallery_collection.delete_one({"_id": document["_id"]})
+    if result.deleted_count:
+        flash("Gallery photo deleted successfully.")
+    else:
+        flash("Gallery photo could not be deleted.")
+
+    return redirect(url_for("home") + "#gallery")
 
 
 @app.route("/gallery-image/<path:filename>")
