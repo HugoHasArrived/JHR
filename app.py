@@ -48,9 +48,23 @@ mongo_db = None
 mongo_fs = None
 
 if MONGO_URI and MongoClient is not None and gridfs is not None:
-    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
-    mongo_db = mongo_client[MONGO_DB_NAME]
-    mongo_fs = gridfs.GridFS(mongo_db)
+    # Never let a bad Render environment variable prevent Flask/Gunicorn from
+    # starting. PyMongo requires mongodb:// or mongodb+srv://.
+    if MONGO_URI.startswith(("mongodb://", "mongodb+srv://")):
+        try:
+            mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
+            mongo_db = mongo_client[MONGO_DB_NAME]
+            mongo_fs = gridfs.GridFS(mongo_db)
+            # Force a connection check so an invalid/unreachable Atlas setup is
+            # detected here and the app can safely fall back to SQLite.
+            mongo_client.admin.command("ping")
+        except Exception as mongo_error:
+            print(f"MongoDB disabled: {mongo_error}")
+            mongo_client = None
+            mongo_db = None
+            mongo_fs = None
+    else:
+        print("MongoDB disabled: MONGO_URI must begin with mongodb:// or mongodb+srv://")
 
 def using_mongo():
     return mongo_db is not None and mongo_fs is not None
