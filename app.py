@@ -41,10 +41,13 @@ app.secret_key = os.environ.get(
 # mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority
 # Local MongoDB example:
 # mongodb://127.0.0.1:27017/
-MONGO_URI = os.environ.get(
-    "MONGO_URI",
-    "mongodb+srv://josehugorafaeltan_db_user:CG4Gvfq2rOjelCHx@jhrwebsite.xaryu3e.mongodb.net/?retryWrites=true&w=majority"
-)
+MONGO_URI = os.environ.get("MONGO_URI", "").strip()
+
+if not MONGO_URI:
+    raise RuntimeError(
+        "MONGO_URI is not set. In Render, open Environment and add MONGO_URI "
+        "with your MongoDB Atlas connection string."
+    )
 
 MONGO_DB_NAME = os.environ.get(
     "MONGO_DB_NAME",
@@ -80,8 +83,9 @@ try:
 
 except PyMongoError as exc:
     raise RuntimeError(
-        "Could not connect to MongoDB. Set MONGO_URI to your MongoDB Atlas "
-        "connection string or make sure local MongoDB is running."
+        "Could not connect to MongoDB. Check that Render has the correct "
+        "MONGO_URI, that MongoDB Atlas allows the deployment to connect, "
+        "and that the database user/password are correct."
     ) from exc
 
 
@@ -2401,6 +2405,97 @@ footer {
 }
 .gallery-card img {
     object-fit: cover;
+}
+
+/* =====================================================
+   COLORFUL / INTERACTIVE GALLERY
+===================================================== */
+.gallery-upload {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(124,58,237,.16), rgba(236,72,153,.14), rgba(59,130,246,.12));
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    box-shadow: 0 18px 45px rgba(124,58,237,.15);
+}
+.gallery-upload::before {
+    content: "";
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    right: -70px;
+    top: -80px;
+    border-radius: 50%;
+    background: rgba(236,72,153,.20);
+    pointer-events: none;
+}
+.gallery-upload input[type=file] {
+    border: 2px dashed #a855f7;
+    background: rgba(255,255,255,.65);
+    transition: .2s ease;
+}
+body.dark .gallery-upload input[type=file] { background: rgba(20,20,35,.7); }
+.gallery-upload input[type=file]:hover {
+    border-color: #ec4899;
+    transform: translateY(-1px);
+}
+.gallery-meta-row {
+    position: relative;
+    background: linear-gradient(135deg, rgba(124,58,237,.09), rgba(236,72,153,.08));
+    border: 1px solid rgba(124,58,237,.28);
+    box-shadow: 0 8px 24px rgba(124,58,237,.08);
+}
+.gallery-file-name {
+    font-weight: 800;
+    color: var(--purple);
+    margin-bottom: 9px;
+    overflow-wrap: anywhere;
+}
+.gallery-meta-row input:focus, .gallery-meta-row textarea:focus {
+    outline: none;
+    border-color: #a855f7;
+    box-shadow: 0 0 0 4px rgba(168,85,247,.13);
+}
+.gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+}
+.gallery-card {
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    position: relative;
+}
+.gallery-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: linear-gradient(90deg, #7c3aed, #ec4899, #06b6d4);
+    z-index: 2;
+}
+.gallery-card:hover {
+    transform: translateY(-7px);
+    box-shadow: 0 22px 50px rgba(76,29,149,.20);
+    border-color: rgba(168,85,247,.45);
+}
+.gallery-image-link { overflow: hidden; }
+.gallery-image-link img {
+    transition: transform .35s ease, filter .35s ease;
+}
+.gallery-card:hover .gallery-image-link img {
+    transform: scale(1.055);
+    filter: saturate(1.08) contrast(1.03);
+}
+.gallery-caption {
+    padding: 18px 18px 20px;
+    background: linear-gradient(180deg, var(--card), rgba(124,58,237,.045));
+}
+.gallery-caption h3 { margin-bottom: 8px; }
+.gallery-caption p { color: var(--muted); line-height: 1.65; }
+@media (max-width: 900px) {
+    .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .gallery-grid { grid-template-columns: 1fr; }
 }
 
 </style>
