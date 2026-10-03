@@ -89,6 +89,21 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS viewers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT NOT NULL,
+            device TEXT NOT NULL DEFAULT 'Unknown',
+            browser TEXT NOT NULL DEFAULT 'Unknown',
+            user_agent TEXT NOT NULL DEFAULT '',
+            country TEXT NOT NULL DEFAULT 'Unknown',
+            city TEXT NOT NULL DEFAULT 'Unknown',
+            region TEXT NOT NULL DEFAULT '',
+            referrer TEXT NOT NULL DEFAULT 'Direct',
+            path TEXT NOT NULL DEFAULT '/',
+            viewed_at TEXT NOT NULL
+        )
+    """)
     db.commit()
     db.close()
 
@@ -203,14 +218,13 @@ def lookup_ip_location(ip):
 
 
 def record_viewer():
-    if not using_mongo():
-        return
+    """Record every homepage visit. MongoDB is preferred; SQLite is a reliable fallback."""
     try:
         ip = get_client_ip()
         device, browser = parse_user_agent(request.headers.get("User-Agent", ""))
-        location = lookup_ip_location(ip)
         now = datetime.utcnow()
-        mongo_db.viewers.insert_one({
+        location = lookup_ip_location(ip)
+        data = {
             "ip": ip,
             "device": device,
             "browser": browser,
@@ -221,9 +235,24 @@ def record_viewer():
             "referrer": request.referrer or "Direct",
             "path": request.path,
             "viewed_at": now,
-        })
-    except Exception:
-        pass
+        }
+        if using_mongo():
+            mongo_db.viewers.insert_one(data)
+        else:
+            db = get_db()
+            db.execute(
+                """INSERT INTO viewers
+                (ip,device,browser,user_agent,country,city,region,referrer,path,viewed_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (ip, device, browser, data["user_agent"], location["country"],
+                 location["city"], location["region"], data["referrer"],
+                 data["path"], now.isoformat(timespec="seconds"))
+            )
+            db.commit()
+            db.close()
+    except Exception as e:
+        # Viewer tracking must never break the public website.
+        print(f"Viewer tracking error: {e}")
 
 
 init_db()
@@ -2502,11 +2531,25 @@ def delete_post(post_id):
 
 @app.route("/staff/viewers")
 def viewer_details():
-    if not staff_required(): return redirect(url_for("staff_login"))
-    viewers=[]
+    if not staff_required():
+        return redirect(url_for("staff_login"))
+    viewers = []
+    total_views = 0
+    storage = "SQLite fallback"
     if using_mongo():
-        viewers=list(mongo_db.viewers.find().sort("viewed_at",DESCENDING).limit(500))
-    return render_template_string(VIEWER_DETAILS_HTML, viewers=viewers, mongo_enabled=using_mongo())
+        viewers = list(mongo_db.viewers.find().sort("viewed_at", DESCENDING).limit(500))
+        total_views = mongo_db.viewers.count_documents({})
+        storage = "MongoDB"
+    else:
+        db = get_db()
+        rows = db.execute("SELECT * FROM viewers ORDER BY id DESC LIMIT 500").fetchall()
+        total_views = db.execute("SELECT COUNT(*) FROM viewers").fetchone()[0]
+        db.close()
+        viewers = [dict(row) for row in rows]
+    return render_template_string(
+        VIEWER_DETAILS_HTML, viewers=viewers, total_views=total_views,
+        mongo_enabled=using_mongo(), storage=storage
+    )
 
 
 STAFF_LOGIN_HTML = r"""
@@ -2600,7 +2643,7 @@ def open_browser():
 
 
 VIEWER_DETAILS_HTML = r"""
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JHR Detailed Viewers</title><style>body{font-family:Arial;margin:0;background:#f6f1fb;color:#24152f}header{background:linear-gradient(135deg,#26083f,#7628d9);color:white;padding:28px;text-align:center}main{max-width:1400px;margin:25px auto;padding:0 15px}.back{display:inline-block;margin:10px 0 20px;padding:12px 20px;background:#7628d9;color:white;text-decoration:none;border-radius:12px}table{width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 25px #0001}th,td{padding:12px;border-bottom:1px solid #eee;text-align:center;vertical-align:top}th{background:#eee6f7}small{color:#666}.empty{text-align:center;padding:50px;background:white;border-radius:16px}</style></head><body><header><h1>👁️ Detailed Viewer Information</h1><p>Recent website visits recorded by JHR.</p></header><main><a class="back" href="{{ url_for('staff_dashboard') }}">← Back to Staff Dashboard</a>{% if not mongo_enabled %}<div class="empty"><h2>Viewer tracking is not connected</h2><p>Set MONGO_URI and MONGO_DB_NAME in Render so viewer information can be stored.</p></div>{% elif viewers %}<div style="overflow-x:auto"><table><tr><th>Date / Time</th><th>IP Address</th><th>Device</th><th>Browser</th><th>Location</th><th>Page</th><th>Referrer</th></tr>{% for v in viewers %}<tr><td>{{ v.get('viewed_at','') }}</td><td>{{ v.get('ip','Unknown') }}</td><td>{{ v.get('device','Unknown') }}</td><td>{{ v.get('browser','Unknown') }}</td><td>{{ v.get('city','Unknown') }}, {{ v.get('region','') }}<br>{{ v.get('country','Unknown') }}</td><td>{{ v.get('path','/') }}</td><td>{{ v.get('referrer','Direct') }}</td></tr>{% endfor %}</table></div>{% else %}<div class="empty"><h2>No viewers recorded yet.</h2><p>Visits will appear here after MongoDB is connected.</p></div>{% endif %}</main></body></html>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JHR Detailed Viewers</title><style>body{font-family:Arial;margin:0;background:#f6f1fb;color:#24152f}header{background:linear-gradient(135deg,#26083f,#7628d9);color:white;padding:28px;text-align:center}main{max-width:1400px;margin:25px auto;padding:0 15px}.back{display:inline-block;margin:10px 0 20px;padding:12px 20px;background:#7628d9;color:white;text-decoration:none;border-radius:12px}table{width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 25px #0001}th,td{padding:12px;border-bottom:1px solid #eee;text-align:center;vertical-align:top}th{background:#eee6f7}small{color:#666}.empty{text-align:center;padding:50px;background:white;border-radius:16px}</style></head><body><header><h1>👁️ Detailed Viewer Information</h1><p>Recent website visits recorded by JHR.</p></header><main><a class="back" href="{{ url_for('staff_dashboard') }}">← Back to Staff Dashboard</a><div style="background:white;border-radius:16px;padding:24px;margin:10px 0 22px;text-align:center;box-shadow:0 8px 25px #0001"><div style="font-size:18px">👁️ Total Page Views</div><div style="font-size:46px;font-weight:800;color:#7628d9">{{ total_views }}</div><small>Storage: {{ storage }}</small></div>{% if viewers %}<div style="overflow-x:auto"><table><tr><th>Date / Time</th><th>IP Address</th><th>Device</th><th>Browser</th><th>Location</th><th>Page</th><th>Referrer</th></tr>{% for v in viewers %}<tr><td>{{ v.get('viewed_at','') }}</td><td>{{ v.get('ip','Unknown') }}</td><td>{{ v.get('device','Unknown') }}</td><td>{{ v.get('browser','Unknown') }}</td><td>{{ v.get('city','Unknown') }}, {{ v.get('region','') }}<br>{{ v.get('country','Unknown') }}</td><td>{{ v.get('path','/') }}</td><td>{{ v.get('referrer','Direct') }}</td></tr>{% endfor %}</table></div>{% else %}<div class="empty"><h2>No viewers recorded yet.</h2><p>Visits will appear here as people visit the website.</p></div>{% endif %}</main></body></html>
 """
 
 
