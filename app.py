@@ -2,6 +2,22 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 import webbrowser
 import threading
 import sqlite3
+import uuid
+import re
+import json
+
+try:
+    from pymongo import MongoClient, DESCENDING
+    import gridfs
+except ImportError:
+    MongoClient = None
+    DESCENDING = -1
+    gridfs = None
+
+try:
+    import requests
+except ImportError:
+    requests = None
 import os
 import secrets
 from io import BytesIO
@@ -23,6 +39,21 @@ STAFF_USERNAME = os.environ.get("STAFF_USERNAME", "admin")
 STAFF_PASSWORD = os.environ.get("STAFF_PASSWORD", "ChangeMe123!")
 MAX_IMAGE_MB = 10
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+# MongoDB is used in production so uploads survive Render redeploys.
+MONGO_URI = os.environ.get("MONGO_URI", "").strip()
+MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "jhr").strip() or "jhr"
+mongo_client = None
+mongo_db = None
+mongo_fs = None
+
+if MONGO_URI and MongoClient is not None and gridfs is not None:
+    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
+    mongo_db = mongo_client[MONGO_DB_NAME]
+    mongo_fs = gridfs.GridFS(mongo_db)
+
+def using_mongo():
+    return mongo_db is not None and mongo_fs is not None
 
 
 def get_db():
@@ -81,6 +112,12 @@ def read_uploaded_image(required=False):
 
 
 def get_posts(section):
+    if using_mongo():
+        rows = list(mongo_db.posts.find({"section": section}).sort("created_at_sort", DESCENDING))
+        for row in rows:
+            row["id"] = str(row["_id"])
+            row["image_mime"] = row.get("image_mime")
+        return rows
     db = get_db()
     rows = db.execute(
         "SELECT id, section, title, description, image_mime, created_at FROM posts WHERE section=? ORDER BY id DESC",
@@ -92,6 +129,12 @@ def get_posts(section):
 
 def get_news_updates():
     """News and announcements are displayed and managed as one combined feed."""
+    if using_mongo():
+        rows = list(mongo_db.posts.find({"section": {"$in": ["news", "announcement"]}}).sort("created_at_sort", DESCENDING))
+        for row in rows:
+            row["id"] = str(row["_id"])
+            row["image_mime"] = row.get("image_mime")
+        return rows
     db = get_db()
     rows = db.execute(
         "SELECT id, section, title, description, image_mime, created_at "
@@ -101,7 +144,103 @@ def get_news_updates():
     return rows
 
 
+def get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "Unknown"
+
+
+def parse_user_agent(ua):
+    ua = ua or ""
+    if re.search(r"iPhone", ua, re.I):
+        device = "iPhone"
+    elif re.search(r"iPad", ua, re.I):
+        device = "iPad"
+    elif re.search(r"Android", ua, re.I):
+        device = "Android device"
+    elif re.search(r"Windows", ua, re.I):
+        device = "Windows PC"
+    elif re.search(r"Macintosh|Mac OS", ua, re.I):
+        device = "Mac"
+    elif re.search(r"Linux", ua, re.I):
+        device = "Linux PC"
+    else:
+        device = "Unknown device"
+    if re.search(r"Edg/", ua): browser = "Microsoft Edge"
+    elif re.search(r"Chrome/", ua) and not re.search(r"Edg/", ua): browser = "Google Chrome"
+    elif re.search(r"Firefox/", ua): browser = "Mozilla Firefox"
+    elif re.search(r"Safari/", ua) and not re.search(r"Chrome/", ua): browser = "Safari"
+    else: browser = "Other / Unknown"
+    return device, browser
+
+
+def lookup_ip_location(ip):
+    if not requests or not ip or ip in {"Unknown", "127.0.0.1", "::1"} or ip.startswith(("10.", "192.168.", "172.16.")):
+        return {"country": "Local/Unknown", "city": "Local/Unknown", "region": ""}
+    try:
+        r = requests.get(f"https://ipapi.co/{ip}/json/", timeout=2.5)
+        if r.ok:
+            data = r.json()
+            return {"country": data.get("country_name", "Unknown"), "city": data.get("city", "Unknown"), "region": data.get("region", "")}
+    except Exception:
+        pass
+    return {"country": "Unknown", "city": "Unknown", "region": ""}
+
+
+def record_viewer():
+    if not using_mongo():
+        return
+    try:
+        ip = get_client_ip()
+        device, browser = parse_user_agent(request.headers.get("User-Agent", ""))
+        location = lookup_ip_location(ip)
+        now = datetime.utcnow()
+        mongo_db.viewers.insert_one({
+            "ip": ip,
+            "device": device,
+            "browser": browser,
+            "user_agent": request.headers.get("User-Agent", ""),
+            "country": location["country"],
+            "city": location["city"],
+            "region": location["region"],
+            "referrer": request.referrer or "Direct",
+            "path": request.path,
+            "viewed_at": now,
+        })
+    except Exception:
+        pass
+
+
 init_db()
+
+def migrate_sqlite_to_mongo():
+    """Copy existing local SQLite posts into MongoDB once, preserving old uploads."""
+    if not using_mongo():
+        return
+    try:
+        if mongo_db.posts.count_documents({}) > 0:
+            return
+        db = get_db()
+        rows = db.execute("SELECT * FROM posts ORDER BY id ASC").fetchall()
+        db.close()
+        for row in rows:
+            doc = {
+                "legacy_id": row["id"],
+                "section": row["section"],
+                "title": row["title"],
+                "description": row["description"],
+                "created_at": row["created_at"],
+            }
+            if row["image_data"]:
+                doc["image_id"] = mongo_fs.put(row["image_data"], contentType=row["image_mime"] or "application/octet-stream", filename=f"legacy-{row['id']}")
+                doc["image_mime"] = row["image_mime"]
+            mongo_db.posts.insert_one(doc)
+    except Exception:
+        # Do not prevent the website from starting if migration is unavailable.
+        pass
+
+migrate_sqlite_to_mongo()
 
 HTML = r"""
 <!DOCTYPE html>
@@ -2191,6 +2330,7 @@ function toggleMusic() {
 
 @app.route("/")
 def home():
+    record_viewer()
     return render_template_string(
         HTML,
         gallery=get_posts("gallery"),
@@ -2198,23 +2338,32 @@ def home():
     )
 
 
-@app.route("/image/<int:post_id>")
+@app.route("/image/<post_id>")
 def post_image(post_id):
-    db = get_db()
-    post = db.execute(
-        "SELECT image_data, image_mime FROM posts WHERE id=?",
-        (post_id,)
-    ).fetchone()
-    db.close()
+    if using_mongo():
+        from bson import ObjectId
+        try:
+            post = mongo_db.posts.find_one({"_id": ObjectId(post_id)})
+        except Exception:
+            post = None
+        if not post or not post.get("image_id"):
+            abort(404)
+        try:
+            blob = mongo_fs.get(post["image_id"])
+            return send_file(BytesIO(blob.read()), mimetype=post.get("image_mime") or "application/octet-stream", max_age=3600)
+        except Exception:
+            abort(404)
 
+    try:
+        legacy_id = int(post_id)
+    except ValueError:
+        abort(404)
+    db = get_db()
+    post = db.execute("SELECT image_data, image_mime FROM posts WHERE id=?", (legacy_id,)).fetchone()
+    db.close()
     if not post or not post["image_data"]:
         abort(404)
-
-    return send_file(
-        BytesIO(post["image_data"]),
-        mimetype=post["image_mime"],
-        max_age=0
-    )
+    return send_file(BytesIO(post["image_data"]), mimetype=post["image_mime"], max_age=0)
 
 
 @app.route("/staff/login", methods=["GET", "POST"])
@@ -2257,126 +2406,93 @@ def staff_dashboard():
 
 @app.route("/staff/add/<section>", methods=["POST"])
 def add_post(section):
-    if not staff_required():
-        return redirect(url_for("staff_login"))
-
-    if section not in {"gallery", "news", "announcement"}:
-        abort(404)
-
+    if not staff_required(): return redirect(url_for("staff_login"))
+    if section not in {"gallery", "news", "announcement"}: abort(404)
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
-
-    if not title:
-        flash("Title is required.")
+    if not title or not description:
+        flash("Title and description are required.")
         return redirect(url_for("staff_dashboard"))
-
-    if not description:
-        flash("Description is required.")
-        return redirect(url_for("staff_dashboard"))
-
     try:
         image_data, image_mime = read_uploaded_image(required=(section == "gallery"))
     except ValueError as exc:
-        flash(str(exc))
-        return redirect(url_for("staff_dashboard"))
-
-    db = get_db()
-    db.execute("""
-        INSERT INTO posts
-        (section, title, description, image_data, image_mime, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        section,
-        title,
-        description,
-        image_data,
-        image_mime,
-        datetime.now().strftime("%B %d, %Y %I:%M %p")
-    ))
-    db.commit()
-    db.close()
-
-    flash("Post published successfully.")
+        flash(str(exc)); return redirect(url_for("staff_dashboard"))
+    created_text = datetime.now().strftime("%B %d, %Y %I:%M %p")
+    created_sort = datetime.utcnow()
+    if using_mongo():
+        doc = {"section": section, "title": title, "description": description, "created_at": created_text, "created_at_sort": created_sort}
+        if image_data is not None:
+            doc["image_id"] = mongo_fs.put(image_data, contentType=image_mime, filename=secrets.token_hex(8))
+            doc["image_mime"] = image_mime
+        mongo_db.posts.insert_one(doc)
+    else:
+        db = get_db(); db.execute("INSERT INTO posts (section,title,description,image_data,image_mime,created_at) VALUES (?,?,?,?,?,?)", (section,title,description,image_data,image_mime,created_text)); db.commit(); db.close()
+    flash("Post published successfully and saved permanently.")
     return redirect(url_for("staff_dashboard"))
 
 
-@app.route("/staff/edit/<int:post_id>", methods=["GET", "POST"])
+@app.route("/staff/edit/<post_id>", methods=["GET", "POST"])
 def edit_post(post_id):
-    if not staff_required():
-        return redirect(url_for("staff_login"))
-
-    db = get_db()
-    post = db.execute("SELECT * FROM posts WHERE id=?", (post_id,)).fetchone()
-    db.close()
-
-    if post is None:
-        abort(404)
-
+    if not staff_required(): return redirect(url_for("staff_login"))
+    if using_mongo():
+        from bson import ObjectId
+        try: post = mongo_db.posts.find_one({"_id": ObjectId(post_id)})
+        except Exception: post = None
+        if post is None: abort(404)
+        post["id"] = str(post["_id"]); post["image_mime"] = post.get("image_mime")
+    else:
+        try: legacy_id=int(post_id)
+        except ValueError: abort(404)
+        db=get_db(); post=db.execute("SELECT * FROM posts WHERE id=?",(legacy_id,)).fetchone(); db.close()
+        if post is None: abort(404)
     if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        description = request.form.get("description", "").strip()
-
-        if not title:
-            flash("Title is required.")
-            return redirect(url_for("edit_post", post_id=post_id))
-        if not description:
-            flash("Description is required.")
-            return redirect(url_for("edit_post", post_id=post_id))
-
-        try:
-            image_data, image_mime = read_uploaded_image(required=False)
-        except ValueError as exc:
-            flash(str(exc))
-            return redirect(url_for("edit_post", post_id=post_id))
-
-        db = get_db()
-        try:
+        title=request.form.get("title","").strip(); description=request.form.get("description","").strip()
+        if not title or not description:
+            flash("Title and description are required."); return redirect(url_for("edit_post",post_id=post_id))
+        try: image_data,image_mime=read_uploaded_image(required=False)
+        except ValueError as exc: flash(str(exc)); return redirect(url_for("edit_post",post_id=post_id))
+        if using_mongo():
+            from bson import ObjectId
+            update={"title":title,"description":description}
             if image_data is not None:
-                db.execute("""
-                    UPDATE posts
-                    SET title=?, description=?, image_data=?, image_mime=?
-                    WHERE id=?
-                """, (title, description, image_data, image_mime, post_id))
-            else:
-                db.execute("""
-                    UPDATE posts
-                    SET title=?, description=?
-                    WHERE id=?
-                """, (title, description, post_id))
-
-            if db.total_changes != 1:
-                raise RuntimeError("The post could not be found or updated.")
-
-            db.commit()
-        except Exception as exc:
-            db.rollback()
-            flash(f"Could not save changes: {exc}")
-            db.close()
-            return redirect(url_for("edit_post", post_id=post_id))
-        finally:
-            try:
-                db.close()
-            except Exception:
-                pass
-
-        flash("Post updated successfully. Your changes are now saved.")
-        return redirect(url_for("staff_dashboard"))
-
+                if post.get("image_id"):
+                    try: mongo_fs.delete(post["image_id"])
+                    except Exception: pass
+                update["image_id"]=mongo_fs.put(image_data,contentType=image_mime,filename=secrets.token_hex(8)); update["image_mime"]=image_mime
+            mongo_db.posts.update_one({"_id":ObjectId(post_id)},{"$set":update})
+        else:
+            db=get_db()
+            if image_data is not None: db.execute("UPDATE posts SET title=?,description=?,image_data=?,image_mime=? WHERE id=?",(title,description,image_data,image_mime,int(post_id)))
+            else: db.execute("UPDATE posts SET title=?,description=? WHERE id=?",(title,description,int(post_id)))
+            db.commit(); db.close()
+        flash("Post updated successfully. Your changes are now saved."); return redirect(url_for("staff_dashboard"))
     return render_template_string(EDIT_POST_HTML, post=post)
 
 
-@app.route("/staff/delete/<int:post_id>", methods=["POST"])
+@app.route("/staff/delete/<post_id>", methods=["POST"])
 def delete_post(post_id):
-    if not staff_required():
-        return redirect(url_for("staff_login"))
+    if not staff_required(): return redirect(url_for("staff_login"))
+    if using_mongo():
+        from bson import ObjectId
+        try: post=mongo_db.posts.find_one({"_id":ObjectId(post_id)})
+        except Exception: post=None
+        if post:
+            if post.get("image_id"):
+                try: mongo_fs.delete(post["image_id"])
+                except Exception: pass
+            mongo_db.posts.delete_one({"_id":post["_id"]})
+    else:
+        db=get_db(); db.execute("DELETE FROM posts WHERE id=?",(int(post_id),)); db.commit(); db.close()
+    flash("Post and its photo were deleted."); return redirect(url_for("staff_dashboard"))
 
-    db = get_db()
-    db.execute("DELETE FROM posts WHERE id=?", (post_id,))
-    db.commit()
-    db.close()
 
-    flash("Post deleted.")
-    return redirect(url_for("staff_dashboard"))
+@app.route("/staff/viewers")
+def viewer_details():
+    if not staff_required(): return redirect(url_for("staff_login"))
+    viewers=[]
+    if using_mongo():
+        viewers=list(mongo_db.viewers.find().sort("viewed_at",DESCENDING).limit(500))
+    return render_template_string(VIEWER_DETAILS_HTML, viewers=viewers, mongo_enabled=using_mongo())
 
 
 STAFF_LOGIN_HTML = r"""
@@ -2446,7 +2562,7 @@ STAFF_DASHBOARD_HTML = r"""
 </style>
 </head>
 <body>
-<header><h1>JHR Staff Dashboard</h1><p>Upload and manage website content.</p><a href="{{ url_for('home') }}">View Website</a><a href="{{ url_for('staff_logout') }}">Logout</a></header>
+<header><h1>JHR Staff Dashboard</h1><p>Upload and manage website content.</p><a href="{{ url_for('home') }}">View Website</a><a href="{{ url_for('viewer_details') }}">👁️ Detailed Viewers</a><a href="{{ url_for('staff_logout') }}">Logout</a></header>
 <main>
 {% with messages=get_flashed_messages() %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
 <div class="tabs"><a href="#gallery">📸 Gallery</a><a href="#news">📰 News</a></div>
@@ -2467,6 +2583,11 @@ STAFF_DASHBOARD_HTML = r"""
 
 def open_browser():
     webbrowser.open("http://127.0.0.1:5000")
+
+
+VIEWER_DETAILS_HTML = r"""
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JHR Detailed Viewers</title><style>body{font-family:Arial;margin:0;background:#f6f1fb;color:#24152f}header{background:linear-gradient(135deg,#26083f,#7628d9);color:white;padding:28px;text-align:center}main{max-width:1400px;margin:25px auto;padding:0 15px}.back{display:inline-block;margin:10px 0 20px;padding:12px 20px;background:#7628d9;color:white;text-decoration:none;border-radius:12px}table{width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 25px #0001}th,td{padding:12px;border-bottom:1px solid #eee;text-align:center;vertical-align:top}th{background:#eee6f7}small{color:#666}.empty{text-align:center;padding:50px;background:white;border-radius:16px}</style></head><body><header><h1>👁️ Detailed Viewer Information</h1><p>Recent website visits recorded by JHR.</p></header><main><a class="back" href="{{ url_for('staff_dashboard') }}">← Back to Staff Dashboard</a>{% if not mongo_enabled %}<div class="empty"><h2>Viewer tracking is not connected</h2><p>Set MONGO_URI and MONGO_DB_NAME in Render so viewer information can be stored.</p></div>{% elif viewers %}<div style="overflow-x:auto"><table><tr><th>Date / Time</th><th>IP Address</th><th>Device</th><th>Browser</th><th>Location</th><th>Page</th><th>Referrer</th></tr>{% for v in viewers %}<tr><td>{{ v.get('viewed_at','') }}</td><td>{{ v.get('ip','Unknown') }}</td><td>{{ v.get('device','Unknown') }}</td><td>{{ v.get('browser','Unknown') }}</td><td>{{ v.get('city','Unknown') }}, {{ v.get('region','') }}<br>{{ v.get('country','Unknown') }}</td><td>{{ v.get('path','/') }}</td><td>{{ v.get('referrer','Direct') }}</td></tr>{% endfor %}</table></div>{% else %}<div class="empty"><h2>No viewers recorded yet.</h2><p>Visits will appear here after MongoDB is connected.</p></div>{% endif %}</main></body></html>
+"""
 
 
 if __name__ == "__main__":
