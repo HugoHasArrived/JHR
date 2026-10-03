@@ -41,12 +41,17 @@ app.secret_key = os.environ.get(
 # mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority
 # Local MongoDB example:
 # mongodb://127.0.0.1:27017/
+# Render sometimes receives environment values with accidental surrounding
+# quotes when they are pasted into the dashboard. Remove only those outer
+# quotes; do not modify the actual MongoDB URI contents.
 MONGO_URI = os.environ.get("MONGO_URI", "").strip()
+if len(MONGO_URI) >= 2 and MONGO_URI[0] == MONGO_URI[-1] and MONGO_URI[0] in {"\"", "'"}:
+    MONGO_URI = MONGO_URI[1:-1].strip()
 
 if not MONGO_URI:
     raise RuntimeError(
-        "MONGO_URI is not set. In Render, open Environment and add MONGO_URI "
-        "with your MongoDB Atlas connection string."
+        "MONGO_URI is missing. Add MONGO_URI to Render Environment Variables "
+        "using your MongoDB Atlas connection string."
     )
 
 MONGO_DB_NAME = os.environ.get(
@@ -65,28 +70,53 @@ os.makedirs(NEWS_FOLDER, exist_ok=True)
 # MONGODB CONNECTION
 # =========================================================
 
-try:
-    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=8000)
-    mongo_client.admin.command("ping")
-    mongo_db = mongo_client[MONGO_DB_NAME]
+def connect_mongodb():
+    """Connect to MongoDB Atlas with retries so Render cold starts are reliable."""
+    last_error = None
+    is_srv = MONGO_URI.lower().startswith("mongodb+srv://")
 
-    staff_accounts_collection = mongo_db["staff_accounts"]
-    class_messages_collection = mongo_db["class_messages"]
-    news_collection = mongo_db["news_items"]
-    gallery_collection = mongo_db["gallery_items"]
-    viewers_collection = mongo_db["viewers"]
+    for attempt in range(1, 7):
+        try:
+            client = MongoClient(
+                MONGO_URI,
+                serverSelectionTimeoutMS=15000,
+                connectTimeoutMS=15000,
+                socketTimeoutMS=30000,
+                retryWrites=True,
+                tls=is_srv,
+                appname="JHR-Website"
+            )
+            client.admin.command("ping")
+            db = client[MONGO_DB_NAME]
+            return client, db
+        except PyMongoError as exc:
+            last_error = exc
+            app.logger.warning(
+                "MongoDB connection attempt %s/6 failed: %s", attempt, exc
+            )
+            if attempt < 6:
+                time.sleep(3)
 
-    staff_accounts_collection.create_index("username", unique=True)
-    gallery_collection.create_index("filename", unique=True)
-    viewers_collection.create_index("viewer_id", unique=True)
-    viewers_collection.create_index([("last_seen", -1)])
-
-except PyMongoError as exc:
     raise RuntimeError(
-        "Could not connect to MongoDB. Check that Render has the correct "
-        "MONGO_URI, that MongoDB Atlas allows the deployment to connect, "
-        "and that the database user/password are correct."
-    ) from exc
+        "JHR could not connect to MongoDB Atlas after 6 attempts. "
+        "The Python dependencies and Flask app started correctly. "
+        "Check MongoDB Atlas Network Access (allow the Render service), "
+        "Database Access credentials, and the exact MONGO_URI value in Render."
+    ) from last_error
+
+
+mongo_client, mongo_db = connect_mongodb()
+
+staff_accounts_collection = mongo_db["staff_accounts"]
+class_messages_collection = mongo_db["class_messages"]
+news_collection = mongo_db["news_items"]
+gallery_collection = mongo_db["gallery_items"]
+viewers_collection = mongo_db["viewers"]
+
+staff_accounts_collection.create_index("username", unique=True)
+gallery_collection.create_index("filename", unique=True)
+viewers_collection.create_index("viewer_id", unique=True)
+viewers_collection.create_index([("last_seen", -1)])
 
 
 def parse_user_agent(user_agent):
