@@ -3071,10 +3071,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9998;
 
     <span class="logo-name-wrap">
         <strong>JHR</strong>
-        <small
-            data-en="Empowerment Through Technology"
-            data-fil="Pagpapalakas sa Pamamagitan ng Teknolohiya"
-        >Empowerment Through Technology</small>
     </span>
 
 </a>
