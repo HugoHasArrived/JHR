@@ -2910,7 +2910,7 @@ body.dark .nav-btn{background:rgba(255,255,255,.05)!important}
 .hero-content{position:relative!important;z-index:2!important;width:min(920px,92%)!important;padding:70px 20px!important;text-align:center!important}
 .hero .badge{display:inline-flex!important;padding:9px 15px!important;border:1px solid rgba(255,255,255,.28)!important;border-radius:999px!important;background:rgba(255,255,255,.13)!important;backdrop-filter:blur(10px)!important;color:#fff!important;font-size:11px!important;letter-spacing:.13em!important;box-shadow:0 10px 30px rgba(0,0,0,.12)!important}
 .hero h1{font-size:clamp(72px,13vw,150px)!important;line-height:.88!important;letter-spacing:-.09em!important;color:#fff!important;text-shadow:0 16px 45px rgba(0,0,0,.22)!important;margin:26px 0 12px!important;font-weight:1000!important}
-.hero-organization-title{display:block!important;width:100%!important;max-width:none!important;font-size:clamp(24px,3.35vw,50px)!important;line-height:1.08!important;color:#fff!important;letter-spacing:-.045em!important;margin:0 auto 20px!important;text-align:center!important;white-space:nowrap!important}
+.hero-organization-title{display:block!important;width:100%!important;max-width:none!important;font-size:clamp(22px,2.45vw,38px)!important;line-height:1.08!important;color:#fff!important;letter-spacing:-.04em!important;margin:0 auto 20px!important;text-align:center!important;white-space:nowrap!important}
 .hero-content .hero-message{font-size:clamp(16px,1.8vw,21px)!important;line-height:1.8!important;color:rgba(255,255,255,.9)!important;max-width:760px!important}
 
 /* Sections */
