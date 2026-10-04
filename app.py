@@ -3236,13 +3236,19 @@ GALLERY
 {% if session.get("staff_id") %}
 <div class="auth-box gallery-upload">
     <h3>📸 Import Pictures</h3>
-    <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from your computer and add them to the JHR Gallery.</p>
+    <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from the same event and give the whole group one shared title and description.</p>
     <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
+        <div class="gallery-shared-fields">
+            <label for="galleryTitle">Event / Gallery Title</label>
+            <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="e.g. Community Outreach Day" required>
+            <label for="galleryDescription">Event / Gallery Description</label>
+            <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="4" placeholder="Describe the event. This description will be used for every selected photo." required></textarea>
+        </div>
         <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
-        <div id="galleryMetadata" class="gallery-metadata"></div>
+        <div id="gallerySelection" class="gallery-selection"></div>
         <button class="upload-submit" type="submit">⬆️ Import Pictures</button>
     </form>
-    <small>Supported: JPG, JPEG, PNG, WEBP, GIF. Each selected photo can have its own title and description.</small>
+    <small>Supported: JPG, JPEG, PNG, WEBP, GIF. Select 1, 2, 3, or more photos from the same event; one title and description will be applied to all.</small>
 </div>
 {% endif %}
 
@@ -4548,52 +4554,40 @@ if (
 
 
 /* =====================================================
-   GALLERY METADATA FIELDS
+   GALLERY SHARED EVENT FIELDS
 ===================================================== */
 
 (function () {
     const fileInput = document.getElementById("galleryFiles");
-    const metadata = document.getElementById("galleryMetadata");
-
-    if (!fileInput || !metadata) {
-        return;
-    }
+    const selection = document.getElementById("gallerySelection");
+    if (!fileInput || !selection) return;
 
     function escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, function (character) {
-            return {
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#039;"
-            }[character];
+            return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[character];
         });
     }
 
-    function renderMetadataFields() {
-        metadata.innerHTML = "";
-
-        Array.from(fileInput.files || []).forEach(function (file, index) {
-            const row = document.createElement("div");
-            row.className = "gallery-meta-row";
-            row.innerHTML =
-                '<div>' +
-                    '<div class="gallery-file-name">📷 ' + escapeHtml(file.name) + '</div>' +
-                    '<label>Photo title</label>' +
-                    '<input type="text" name="title_' + index + '" maxlength="160" placeholder="Title for this photo">' +
-                '</div>' +
-                '<div>' +
-                    '<label>Photo description</label>' +
-                    '<textarea name="description_' + index + '" maxlength="2000" placeholder="Describe this photo..."></textarea>' +
-                '</div>';
-            metadata.appendChild(row);
-        });
+    function renderSelection() {
+        const files = Array.from(fileInput.files || []);
+        if (!files.length) { selection.innerHTML = ""; return; }
+        selection.innerHTML = '<div class="gallery-selection-title">📸 ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + ' selected for this event</div>' +
+            '<div class="gallery-selection-list">' + files.map(function (file) {
+                return '<div class="gallery-selection-item">🖼️ ' + escapeHtml(file.name) + '</div>';
+            }).join('') + '</div>';
     }
-
-    fileInput.addEventListener("change", renderMetadataFields);
-    renderMetadataFields();
+    fileInput.addEventListener("change", renderSelection);
+    renderSelection();
 })();
+
+/* Shared gallery event upload fields */
+.gallery-shared-fields{display:grid;gap:10px;margin:0 0 16px}
+.gallery-shared-fields label{font-weight:800;text-align:left}
+.gallery-shared-fields input,.gallery-shared-fields textarea{width:100%;box-sizing:border-box;border:1px solid rgba(109,40,217,.18);border-radius:16px;padding:13px 15px;background:rgba(255,255,255,.9);font:inherit;resize:vertical}
+.gallery-selection{margin:12px 0 16px;text-align:left}
+.gallery-selection-title{font-weight:800;margin-bottom:8px}
+.gallery-selection-list{display:flex;flex-wrap:wrap;gap:8px}
+.gallery-selection-item{padding:8px 11px;border-radius:999px;background:rgba(124,58,237,.08);font-size:.9rem}
 
 /* =====================================================
    IMAGE ERROR HANDLER
@@ -4927,8 +4921,10 @@ def upload_gallery():
         candidate = f"{base}_{uuid4().hex[:10]}{ext}"
         filepath = os.path.join(GALLERY_FOLDER, candidate)
 
-        title = request.form.get(f"title_{index}", "").strip()[:160]
-        description = request.form.get(f"description_{index}", "").strip()[:2000]
+        # All photos selected in one upload represent the same event/group,
+        # so they share one title and one description.
+        title = request.form.get("gallery_title", "").strip()[:160]
+        description = request.form.get("gallery_description", "").strip()[:2000]
 
         if not title:
             title = os.path.splitext(original_name)[0][:160]
