@@ -2692,6 +2692,57 @@ body.dark footer{background:rgba(10,6,16,.55)!important}
 @media(max-width:1050px){nav{flex-wrap:wrap}.nav-links{order:3;flex-basis:100%;overflow-x:auto;justify-content:flex-start;padding-top:3px}.mission{grid-template-columns:repeat(2,1fr)!important}.hero{min-height:600px!important}}
 @media(max-width:700px){nav{top:7px!important;width:calc(100% - 16px)!important;margin-top:7px!important;border-radius:18px!important}.logo{margin-right:auto}.nav-controls{gap:4px}.nav-btn{padding:8px 9px!important}.nav-links a{font-size:12px!important}.hero,.section,.color-section{width:calc(100% - 16px)}.hero{min-height:570px!important;border-radius:28px!important}.section{padding:72px 0!important}.color-section{width:100%;padding-left:16px;padding-right:16px}.mission{grid-template-columns:1fr!important}.gallery-grid{grid-template-columns:1fr!important}.gallery-card .gallery-image-link{height:270px!important}.who-we-are-box{padding:25px!important}.who-we-are-box p{font-size:15px!important}.title{font-size:39px!important}.auth-box{padding:28px!important;margin:20px 10px}}
 
+
+
+/* =====================================================
+   JHR ULTRA INTERACTIVE EXPERIENCE
+===================================================== */
+:root{--jhr-ease:cubic-bezier(.2,.8,.2,1)}
+html{scroll-behavior:smooth}
+body{overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9998;background:radial-gradient(500px circle at var(--mx,50%) var(--my,20%),rgba(139,92,246,.09),transparent 55%);transition:opacity .25s;}
+#jhr-progress{position:fixed;left:0;top:0;height:4px;width:0;z-index:10000;background:linear-gradient(90deg,#7c3aed,#ec4899,#06b6d4);box-shadow:0 0 18px rgba(168,85,247,.7);border-radius:0 99px 99px 0}
+.nav-links a{position:relative;padding:9px 11px;border-radius:12px;transition:transform .25s var(--jhr-ease),background .25s,color .25s}
+.nav-links a::after{content:"";position:absolute;left:12px;right:12px;bottom:4px;height:2px;border-radius:10px;background:linear-gradient(90deg,#8b5cf6,#ec4899);transform:scaleX(0);transform-origin:center;transition:transform .25s var(--jhr-ease)}
+.nav-links a:hover{transform:translateY(-2px);background:rgba(139,92,246,.10)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.button,.nav-btn,button{transition:transform .25s var(--jhr-ease),box-shadow .25s,filter .25s!important}
+.button:hover,.nav-btn:hover,button:hover{box-shadow:0 14px 34px rgba(124,58,237,.25);filter:saturate(1.12)}
+.hero{position:relative;overflow:hidden}
+.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(2px);opacity:.45}
+.hero::before{width:420px;height:420px;left:-130px;top:-100px;background:radial-gradient(circle,rgba(236,72,153,.45),transparent 68%);animation:jhrFloat 9s ease-in-out infinite}
+.hero::after{width:520px;height:520px;right:-180px;bottom:-180px;background:radial-gradient(circle,rgba(34,211,238,.25),transparent 68%);animation:jhrFloat 11s ease-in-out infinite reverse}
+.hero-content{position:relative;z-index:2}
+.badge{animation:jhrPulse 3s ease-in-out infinite}
+.hero h1{background:linear-gradient(90deg,#fff,#e9d5ff,#fff,#fbcfe8);background-size:250% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:jhrGradient 7s linear infinite;text-shadow:none}
+.card,.gallery-card,.owner-card,.project-mini-card,.service-card,.news-card,.mission-card{transition:transform .35s var(--jhr-ease),box-shadow .35s,border-color .35s,background .35s;will-change:transform}
+.card:hover,.gallery-card:hover,.owner-card:hover,.project-mini-card:hover,.service-card:hover,.news-card:hover,.mission-card:hover{box-shadow:0 25px 70px rgba(31,15,52,.22);border-color:rgba(139,92,246,.35)}
+.gallery-card{position:relative}
+.gallery-card::before,.news-card::before,.service-card::before,.project-mini-card::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 35%,transparent 70%,rgba(139,92,246,.08));opacity:0;transition:opacity .35s}
+.gallery-card:hover::before,.news-card:hover::before,.service-card:hover::before,.project-mini-card:hover::before{opacity:1}
+.gallery-image-link{overflow:hidden}
+.gallery-image-link img{transition:transform .65s var(--jhr-ease),filter .65s!important}
+.gallery-card:hover .gallery-image-link img{transform:scale(1.075)!important;filter:saturate(1.12) contrast(1.03)}
+.gallery-caption{position:relative}
+.gallery-caption::before{content:"";position:absolute;left:0;top:0;width:54px;height:3px;background:linear-gradient(90deg,#7c3aed,#ec4899);border-radius:99px}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .75s var(--jhr-ease),transform .75s var(--jhr-ease)}
+.reveal.is-visible{opacity:1;transform:none}
+.jhr-section-glow{position:relative}
+.jhr-section-glow::before{content:"";position:absolute;left:50%;top:0;width:220px;height:2px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#8b5cf6,#ec4899,transparent);opacity:.8}
+#jhr-lightbox{position:fixed;inset:0;z-index:10001;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(5,3,12,.88);backdrop-filter:blur(16px)}
+#jhr-lightbox.open{display:flex;animation:jhrFade .2s ease}
+#jhr-lightbox img{max-width:min(1200px,94vw);max-height:88vh;object-fit:contain;border-radius:20px;box-shadow:0 30px 100px rgba(0,0,0,.55)}
+#jhr-lightbox-close{position:absolute;top:20px;right:22px;width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:28px;cursor:pointer}
+.jhr-ripple{position:relative;overflow:hidden}
+.jhr-ripple-dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.4);transform:scale(0);animation:jhrRipple .55s ease-out;pointer-events:none}
+@keyframes jhrFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(22px,18px,0)}}
+@keyframes jhrPulse{0%,100%{box-shadow:0 0 0 0 rgba(167,139,250,0)}50%{box-shadow:0 0 0 9px rgba(167,139,250,.08)}}
+@keyframes jhrGradient{to{background-position:250% center}}
+@keyframes jhrFade{from{opacity:0}to{opacity:1}}
+@keyframes jhrRipple{to{transform:scale(5);opacity:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+@media(max-width:700px){#jhr-progress{height:3px}.hero h1{letter-spacing:2px}.button{min-height:44px}.nav-links a{min-height:40px;display:inline-flex;align-items:center}}
+
 </style>
 
 </head>
@@ -4666,6 +4717,86 @@ document.addEventListener(
 
     }
 );
+
+
+
+/* =====================================================
+   JHR INTERACTION ENGINE
+===================================================== */
+(function(){
+    function initJHRInteractions(){
+        if(window.__jhrUltraReady)return;
+        window.__jhrUltraReady=true;
+        const root=document.body;
+        if(!root)return;
+
+        const progress=document.createElement('div');
+        progress.id='jhr-progress';
+        root.appendChild(progress);
+        const updateProgress=()=>{
+            const max=document.documentElement.scrollHeight-window.innerHeight;
+            progress.style.width=(max>0?Math.min(100,Math.max(0,window.scrollY/max*100)):0)+'%';
+        };
+        window.addEventListener('scroll',updateProgress,{passive:true}); updateProgress();
+
+        let raf=0;
+        window.addEventListener('pointermove',e=>{
+            if(raf)return;
+            raf=requestAnimationFrame(()=>{root.style.setProperty('--mx',e.clientX+'px');root.style.setProperty('--my',e.clientY+'px');raf=0;});
+        },{passive:true});
+
+        const revealables=root.querySelectorAll('section,.card,.gallery-card,.owner-card,.project-mini-card,.service-card,.news-card,.mission-card');
+        revealables.forEach((el,i)=>{el.classList.add('reveal');el.style.transitionDelay=Math.min(i%6,5)*45+'ms';});
+        if('IntersectionObserver' in window){
+            const io=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('is-visible');io.unobserve(entry.target);}}),{threshold:.08});
+            revealables.forEach(el=>io.observe(el));
+        }else revealables.forEach(el=>el.classList.add('is-visible'));
+
+        const lightbox=document.createElement('div');
+        lightbox.id='jhr-lightbox';
+        lightbox.innerHTML='<button id="jhr-lightbox-close" type="button" aria-label="Close image">×</button><img alt="Gallery preview">';
+        root.appendChild(lightbox);
+        const lightImg=lightbox.querySelector('img');
+        const close=()=>lightbox.classList.remove('open');
+        lightbox.addEventListener('click',e=>{if(e.target===lightbox)close();});
+        lightbox.querySelector('#jhr-lightbox-close').addEventListener('click',close);
+        document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+        root.querySelectorAll('.gallery-image-link').forEach(link=>{
+            link.addEventListener('click',e=>{
+                const img=link.querySelector('img'); if(!img)return;
+                e.preventDefault(); lightImg.src=img.currentSrc||img.src; lightImg.alt=img.alt||'Gallery preview'; lightbox.classList.add('open');
+            });
+        });
+
+        root.querySelectorAll('.button,.nav-btn,button').forEach(btn=>{
+            btn.classList.add('jhr-ripple');
+            btn.addEventListener('click',e=>{
+                const rect=btn.getBoundingClientRect(), dot=document.createElement('span');
+                const size=Math.max(rect.width,rect.height); dot.className='jhr-ripple-dot'; dot.style.width=dot.style.height=size+'px';
+                dot.style.left=(e.clientX-rect.left-size/2)+'px'; dot.style.top=(e.clientY-rect.top-size/2)+'px'; btn.appendChild(dot);
+                setTimeout(()=>dot.remove(),600);
+            });
+        });
+
+        if(window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+            root.querySelectorAll('.gallery-card,.owner-card,.service-card,.project-mini-card,.news-card').forEach(card=>{
+                card.addEventListener('pointermove',e=>{
+                    const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+                    card.style.transform='perspective(900px) rotateX('+(-y*2.5)+'deg) rotateY('+(x*2.5)+'deg) translateY(-4px)';
+                });
+                card.addEventListener('pointerleave',()=>card.style.transform='');
+            });
+        }
+
+        const links=[...root.querySelectorAll('.nav-links a[href^="#"]')];
+        const sections=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+        if('IntersectionObserver' in window && sections.length){
+            const navIO=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){links.forEach(a=>a.classList.toggle('active-nav',a.getAttribute('href')==='#'+entry.target.id));}}),{rootMargin:'-35% 0px -55% 0px',threshold:0});
+            sections.forEach(s=>navIO.observe(s));
+        }
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initJHRInteractions,{once:true});else initJHRInteractions();
+})();
 
 </script>
 
