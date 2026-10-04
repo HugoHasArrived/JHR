@@ -557,7 +557,8 @@ a{color:#b894ff}
 
 /* JHR PREMIUM STAFF UI */
 body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important;background:radial-gradient(circle at 10% 0%,rgba(139,92,246,.18),transparent 28%),linear-gradient(180deg,#0b0712,#170d24)!important;padding:28px!important;color:#fff!important}
-.wrap{max-width:1280px!important}.card{background:rgba(27,18,42,.78)!important;border:1px solid rgba(196,160,255,.16)!important;border-radius:24px!important;box-shadow:0 22px 65px rgba(0,0,0,.28)!important;backdrop-filter:blur(18px)!important}.staff-tabs{gap:10px!important}.staff-tab{border:1px solid rgba(196,160,255,.15)!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;padding:12px 16px!important;transition:.2s ease!important}.staff-tab:hover{transform:translateY(-2px)!important;background:rgba(139,92,246,.15)!important}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#db2777)!important;box-shadow:0 12px 30px rgba(124,58,237,.25)!important}.viewer-summary>div{border-radius:18px!important;background:rgba(255,255,255,.045)!important;border-color:rgba(196,160,255,.13)!important}.viewer-table-wrap{border-radius:18px!important;border-color:rgba(196,160,255,.13)!important}.viewer-table th{background:#130b1f!important}.notice{border:1px solid rgba(196,160,255,.15)!important;background:rgba(124,58,237,.12)!important;border-radius:14px!important}.secret-tab{background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(124,58,237,.14))!important}.account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(196,160,255,.1)}.account-row .meta{display:block;margin-top:4px}.danger-mini{background:#b42318!important}.secret-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.secret-grid>div{padding:16px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(196,160,255,.12)}.secret-grid strong{font-size:25px;display:block}.secret-grid span{color:#aab4c2;font-size:13px}.secret-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.secret-note{margin-top:16px;padding:12px;border-radius:12px;background:rgba(234,179,8,.08);color:#f3d98a}@media(max-width:800px){.secret-grid,.secret-actions{grid-template-columns:1fr}}
+.wrap{max-width:1280px!important}.card{background:rgba(27,18,42,.78)!important;border:1px solid rgba(196,160,255,.16)!important;border-radius:24px!important;box-shadow:0 22px 65px rgba(0,0,0,.28)!important;backdrop-filter:blur(18px)!important}.staff-tabs{gap:10px!important}.staff-tab{border:1px solid rgba(196,160,255,.15)!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;padding:12px 16px!important;transition:.2s ease!important}.staff-tab:hover{transform:translateY(-2px)!important;background:rgba(139,92,246,.15)!important}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#db2777)!important;box-shadow:0 12px 30px rgba(124,58,237,.25)!important}.viewer-summary>div{border-radius:18px!important;background:rgba(255,255,255,.045)!important;border-color:rgba(196,160,255,.13)!important}.viewer-table-wrap{border-radius:18px!important;border-color:rgba(196,160,255,.13)!important}.viewer-table th{background:#130b1f!important}.notice{border:1px solid rgba(196,160,255,.15)!important;background:rgba(124,58,237,.12)!important;border-radius:14px!important}.secret-tab{background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(124,58,237,.14))!important}.account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(196,160,255,.1)}.account-row .meta{display:block;margin-top:4px}.danger-mini{background:#b42318!important}.secret-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.secret-grid>div{padding:16px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(196,160,255,.12)}.secret-grid strong{font-size:25px;display:block}.secret-grid span{color:#aab4c2;font-size:13px}.secret-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.secret-health{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.secret-health>div{padding:12px;border:1px solid rgba(124,58,237,.14);border-radius:14px;background:rgba(124,58,237,.05)}.secret-health span{display:block;color:var(--muted);font-size:.75rem}.secret-health strong{display:block;margin-top:4px}.secret-danger-zone{margin-top:18px;padding:16px;border:1px solid rgba(239,68,68,.22);border-radius:16px;background:rgba(239,68,68,.04)}.secret-danger-zone h3{margin:0 0 4px}.secret-danger-zone form{margin-top:10px}@media(max-width:700px){.secret-health{grid-template-columns:1fr}}
+.secret-note{margin-top:16px;padding:12px;border-radius:12px;background:rgba(234,179,8,.08);color:#f3d98a}@media(max-width:800px){.secret-grid,.secret-actions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -740,6 +741,18 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
 <form method="POST" action="{{ url_for('superadmin_cleanup_gridfs') }}" onsubmit="return confirm('Remove orphaned stored photos?');"><button type="submit">🗂️ Clean Storage</button></form>
 <form method="POST" action="{{ url_for('superadmin_clear_audit') }}" onsubmit="return confirm('Clear all superadmin audit logs?');"><button type="submit" class="danger-mini">🧾 Clear Logs</button></form>
 <a class="button" href="{{ url_for('superadmin_export_viewers') }}">📊 Export Viewers</a>
+<a class="button" href="{{ url_for('superadmin_export_gallery') }}">🖼️ Export Gallery</a>
+<a class="button" href="{{ url_for('staff_dashboard') }}#control">🔄 Refresh</a>
+</div>
+<div class="secret-health">
+<div><span>Database</span><strong>{{ superadmin_stats.db }}</strong></div>
+<div><span>Storage</span><strong>{{ superadmin_stats.storage_mb }} MB</strong></div>
+<div><span>Session</span><strong>5 min</strong></div>
+</div>
+<div class="secret-danger-zone">
+<h3>⚠️ Danger Zone</h3>
+<p class="meta">These actions are permanent.</p>
+<form method="POST" action="{{ url_for('superadmin_clear_gallery') }}" onsubmit="return confirm('DELETE ALL GALLERY PHOTOS AND THEIR STORED FILES? This cannot be undone.');"><button type="submit" class="danger-mini">🗑️ Delete Entire Gallery</button></form>
 </div>
 <h3 style="margin-top:22px">🛡️ Account Roles</h3>
 {% for staff in staff_accounts %}
@@ -3305,7 +3318,7 @@ GALLERY
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">1</span>
-                <div><strong>1. Photos</strong><small>Choose event photos.</small></div>
+                <div><strong>Photos</strong><small>Choose event photos.</small></div>
             </div>
             <label for="galleryFiles" class="gallery-dropzone" id="galleryDropzone">
                 <span class="gallery-drop-icon">☁️</span>
@@ -3320,7 +3333,7 @@ GALLERY
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">2</span>
-                <div><strong>2. Title</strong><small>Used for every photo.</small></div>
+                <div><strong>Title</strong><small>Used for every photo.</small></div>
             </div>
             <label class="sr-only" for="galleryTitle">Event / Gallery Title</label>
             <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="Example: Outreach Day" required>
@@ -3329,7 +3342,7 @@ GALLERY
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">3</span>
-                <div><strong>3. Description</strong><small>Used for every photo.</small></div>
+                <div><strong>Description</strong><small>Used for every photo.</small></div>
             </div>
             <label class="sr-only" for="galleryDescription">Event / Gallery Description</label>
             <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="5" placeholder="Example: Our team helped the community." required></textarea>
@@ -5202,6 +5215,14 @@ def coding_class_message():
     return redirect(url_for("home") + "#coding-classes")
 
 
+def _db_ping_ok():
+    try:
+        mongo_db.command("ping")
+        return True
+    except Exception:
+        return False
+
+
 # =========================================================
 # STAFF DASHBOARD
 # =========================================================
@@ -5231,7 +5252,7 @@ def staff_dashboard():
         staff_username=session.get("staff_username"),
         staff_role=session.get("staff_role", "staff"),
         superadmin_audit=[normalize_audit(d) for d in audit_collection.find().sort("_id", -1).limit(30)],
-        superadmin_stats={"accounts": staff_accounts_collection.count_documents({}), "gallery": gallery_collection.count_documents({}), "news": news_collection.count_documents({}), "messages": class_messages_collection.count_documents({}), "viewers": viewers_collection.count_documents({}), "gridfs": mongo_db["gallery_files.files"].count_documents({}), "audit": audit_collection.count_documents({})}
+        superadmin_stats={"accounts": staff_accounts_collection.count_documents({}), "gallery": gallery_collection.count_documents({}), "news": news_collection.count_documents({}), "messages": class_messages_collection.count_documents({}), "viewers": viewers_collection.count_documents({}), "gridfs": mongo_db["gallery_files.files"].count_documents({}), "audit": audit_collection.count_documents({}), "storage_mb": round(mongo_db["gallery_files.files"].aggregate([{ "$group": {"_id": None, "bytes": {"$sum": "$length"}}}]).next().get("bytes", 0) / 1048576, 2) if mongo_db["gallery_files.files"].count_documents({}) else 0, "db": "Online" if _db_ping_ok() else "Check"}
     )
 
 
@@ -5330,6 +5351,36 @@ def superadmin_export_viewers():
     response = app.response_class(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=jhr_viewers.csv"
     return response
+
+@app.route("/superadmin/export-gallery")
+@superadmin_required
+def superadmin_export_gallery():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Filename", "Title", "Description", "Uploaded At"])
+    for item in gallery_collection.find().sort("_id", -1):
+        writer.writerow([item.get("filename", ""), item.get("title", ""), item.get("description", ""), item.get("uploaded_at", "")])
+    audit_superadmin("Gallery export", "Downloaded gallery metadata CSV")
+    response = app.response_class(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=jhr_gallery.csv"
+    return response
+
+@app.route("/superadmin/clear-gallery", methods=["POST"])
+@superadmin_required
+def superadmin_clear_gallery():
+    removed_files = 0
+    for item in gallery_collection.find({}, {"gridfs_id": 1}):
+        gid = item.get("gridfs_id")
+        if gid:
+            try:
+                gallery_fs.delete(ObjectId(str(gid)))
+                removed_files += 1
+            except Exception:
+                pass
+    result = gallery_collection.delete_many({})
+    audit_superadmin("Entire gallery deleted", f"Removed {result.deleted_count} gallery records and {removed_files} stored files")
+    flash(f"Gallery cleared: {result.deleted_count} photos removed.")
+    return redirect(url_for("staff_dashboard") + "#control")
 
 @app.route("/superadmin/clear-audit", methods=["POST"])
 @superadmin_required
