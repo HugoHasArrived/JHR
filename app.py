@@ -2958,8 +2958,21 @@ body.dark .gallery-meta-row{background:rgba(255,255,255,.035)!important}
 body.dark .auth-box{background:rgba(27,18,42,.88)!important}.auth-box input,.auth-box textarea,.gallery-meta-row input,.gallery-meta-row textarea{border:1px solid var(--jhr-line)!important;border-radius:14px!important;transition:.2s ease!important}.auth-box input:focus,.gallery-meta-row input:focus,.gallery-meta-row textarea:focus{outline:none!important;border-color:var(--jhr-violet)!important;box-shadow:0 0 0 4px rgba(139,92,246,.13)!important}
 
 /* Footer */
-footer{margin-top:30px!important;border-top:1px solid var(--jhr-line)!important;background:rgba(255,255,255,.55)!important;backdrop-filter:blur(18px)!important}
-body.dark footer{background:rgba(10,6,16,.55)!important}
+/* Header brand + tagline */
+.logo{display:flex!important;align-items:center!important;gap:10px!important}
+.logo-name-wrap{display:flex!important;align-items:center!important;gap:9px!important;white-space:nowrap!important}
+.logo-name-wrap strong{font-size:22px!important;line-height:1!important;color:var(--jhr-ink)!important}
+.logo-name-wrap small{font-size:11px!important;font-weight:800!important;letter-spacing:.01em!important;color:var(--jhr-muted)!important;line-height:1.1!important}
+body.dark .logo-name-wrap strong{color:#fff!important}
+body.dark .logo-name-wrap small{color:#ddd3eb!important}
+
+/* Footer: always readable in light and dark mode */
+footer{margin-top:30px!important;border-top:1px solid var(--jhr-line)!important;background:#f7f4fb!important;color:#241632!important;backdrop-filter:blur(18px)!important;text-align:center!important}
+footer .footer-logo{color:#5b21b6!important}
+footer p{color:#3f3150!important}
+body.dark footer{background:#120b1c!important;color:#f5effb!important}
+body.dark footer .footer-logo{color:#d8b4fe!important}
+body.dark footer p{color:#e9def2!important}
 
 /* Scrollbar / selection */
 ::selection{background:#8b5cf6;color:#fff}::-webkit-scrollbar{width:10px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:linear-gradient(#7c3aed,#db2777);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
@@ -3056,8 +3069,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9998;
         decoding="async"
     >
 
-    <span>
-        JHR
+    <span class="logo-name-wrap">
+        <strong>JHR</strong>
+        <small
+            data-en="Empowerment Through Technology"
+            data-fil="Pagpapalakas sa Pamamagitan ng Teknolohiya"
+        >Empowerment Through Technology</small>
     </span>
 
 </a>
