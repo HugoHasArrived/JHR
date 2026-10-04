@@ -2741,7 +2741,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9998;
 @keyframes jhrFade{from{opacity:0}to{opacity:1}}
 @keyframes jhrRipple{to{transform:scale(5);opacity:0}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
-@media(max-width:700px){#jhr-progress{height:3px}.hero h1{letter-spacing:2px}.button{min-height:44px}.nav-links a{min-height:40px;display:inline-flex;align-items:center}}
+@media(max-width:700px){ #jhr-progress{height:3px}.hero h1{letter-spacing:2px}.button{min-height:44px}.nav-links a{min-height:40px;display:inline-flex;align-items:center}}
 
 </style>
 
