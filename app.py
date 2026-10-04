@@ -1714,112 +1714,129 @@ body.dark .title {
 ===================================================== */
 
 .gallery-grid {
-
-    display:
-        grid;
-
-    grid-template-columns:
-        repeat(
-            3,
-            minmax(0,1fr)
-        );
-
-    gap:
-        24px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    align-items: stretch;
 }
-
 
 .gallery-card {
-
-    overflow:
-        hidden;
-
-    background:
-        var(--card);
-
-    border-radius:
-        22px;
-
-    box-shadow:
-        var(--shadow);
-
-    border:
-        1px solid
-        var(--border);
-}
-
-
-.gallery-card img {
-
-    display:
-        block;
-
-    width:
-        100%;
-
-    height:
-        300px;
-
-    object-fit:
-        cover;
-
-    background:
-        var(--purple-soft);
-
-    /*
-       Faster image loading.
-    */
-    content-visibility:
-        auto;
+    width: 100%;
+    height: 520px;
+    min-height: 520px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    box-sizing: border-box;
 }
 
 .gallery-image-link {
     display: block;
     position: relative;
+    flex: 0 0 300px;
+    width: 100%;
+    height: 300px;
+    overflow: hidden;
     background: var(--purple-soft);
     text-decoration: none;
 }
 
+.gallery-card img,
 .gallery-image-link img {
-    transition: transform .2s ease, opacity .2s ease;
+    display: block;
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    object-position: center;
+    background: var(--purple-soft);
+    content-visibility: auto;
+    transition: transform .25s ease, opacity .2s ease;
 }
 
 .gallery-image-link:hover img {
-    transform: scale(1.02);
+    transform: scale(1.035);
 }
 
 .gallery-image-error {
     display: none;
-    min-height: 300px;
-    padding: 30px;
+    width: 100%;
+    height: 300px;
     align-items: center;
     justify-content: center;
     color: var(--muted);
     text-align: center;
 }
 
-
 .gallery-caption {
-
-    padding:
-        20px;
+    flex: 1 1 auto;
+    min-height: 220px;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 22px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: var(--card);
 }
-
 
 .gallery-caption h3 {
-
-    color:
-        var(--purple);
-
-    margin-bottom:
-        6px;
+    width: 100%;
+    min-height: 32px;
+    margin: 0 0 10px;
+    color: var(--purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
-
 .gallery-caption p {
+    width: 100%;
+    min-height: 52px;
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
+    text-align: center;
+}
 
-    color:
-        var(--muted);
+.gallery-delete-form {
+    width: 100%;
+    margin-top: auto;
+    padding-top: 16px;
+}
+
+.gallery-delete-button {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.gallery-delete-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(220, 38, 38, .22);
+}
+
+@media (max-width: 900px) {
+    .gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .gallery-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 
@@ -3248,134 +3265,6 @@ GALLERY
     </div>
 </div>
 {% endfor %}
-
-
-<!-- =====================================================
-     IMG_0884
-===================================================== -->
-
-<div class="gallery-card">
-
-
-<img
-    src="/media/IMG_0884"
-    alt="JHR technology activity"
-    loading="lazy"
-    decoding="async"
-    onerror="imageError(this)"
->
-
-
-<div class="gallery-caption">
-
-<h3
-    data-en="It's Building Time!"
-    data-fil="💻 Aktibidad sa Teknolohiya ng JHR"
->
-
-    It's Building Time!
-
-</h3>
-
-
-<p
-    data-en="We introduced children to basic robotics concepts through LEGO blocks."
-    data-fil="Pag-aaral ng teknolohiya, coding at digital skills."
->
-
-    We introduced children to basic robotics concepts through LEGO blocks.
-
-</p>
-
-</div>
-
-</div>
-
-
-
-<!-- =====================================================
-     IMG_5798
-===================================================== -->
-
-<div class="gallery-card">
-
-
-<img
-    src="/media/IMG_5798"
-    alt="JHR community learning activity"
-    loading="lazy"
-    decoding="async"
-    onerror="imageError(this)"
->
-
-
-<div class="gallery-caption">
-
-<h3
-    data-en="Community Time"
-    data-fil="🤝 Pagkatuto sa Komunidad"
->
-
-    Community Time
-
-</h3>
-
-
-<p
-    data-en="We introduced children to basic robotics concepts through LEGO SPIKE Prime."
-    data-fil="Sama-samang pag-aaral at pagtutulungan sa komunidad."
->
-
-    We introduced children to basic robotics concepts through LEGO SPIKE Prime.
-
-</p>
-
-</div>
-
-</div>
-
-
-
-<!-- =====================================================
-     IMG_12345
-===================================================== -->
-
-<div class="gallery-card">
-
-
-<img
-    src="/media/IMG_12345"
-    alt="Ozamiz Elementary School JHR activity"
-    loading="lazy"
-    decoding="async"
-    onerror="imageError(this)"
->
-
-
-<div class="gallery-caption">
-
-<h3
-    data-en="It's Scratch Time!"
-    data-fil="It's Scratch Time!"
->
-
-    It's Scratch Time!
-
-</h3>
-
-
-<p
-    data-en="We introduced children to basic coding skills."
-    data-fil="Isang espesyal na sandali ng JHR kasama ang paaralan at komunidad."
->
-
-    We introduced children to basic coding skills.
-
-</p>
-
-</div>
-
-</div>
 
 
 </div>
