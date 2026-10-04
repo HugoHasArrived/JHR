@@ -9,6 +9,7 @@ import time
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
+import gridfs
 from bson import ObjectId
 from uuid import uuid4
 import re
@@ -119,6 +120,10 @@ gallery_collection.create_index("filename", unique=True)
 # Keep this index non-unique so legacy null/missing viewer_id records cannot crash startup.
 viewers_collection.create_index("viewer_id", name="viewer_id_lookup", unique=False)
 viewers_collection.create_index([("last_seen", -1)])
+
+# MongoDB GridFS stores uploaded gallery images permanently in Atlas.
+# Render's local filesystem is ephemeral, so uploaded photos must not rely on it.
+gallery_fs = gridfs.GridFS(mongo_db, collection="gallery_files")
 
 
 def parse_user_agent(user_agent):
@@ -339,41 +344,72 @@ def news_items():
     return items
 
 
-def gallery_images():
-    images = []
-    existing_metadata = {
-        doc.get("filename"): doc
-        for doc in gallery_collection.find()
-        if doc.get("filename")
-    }
+def migrate_local_gallery_files_to_gridfs():
+    """Move any gallery files still on disk into MongoDB GridFS."""
+    if not os.path.isdir(GALLERY_FOLDER):
+        return
 
-    if os.path.isdir(GALLERY_FOLDER):
-        for filename in sorted(os.listdir(GALLERY_FOLDER)):
-            if not allowed_file(filename):
+    for filename in os.listdir(GALLERY_FOLDER):
+        if not allowed_file(filename):
+            continue
+
+        filepath = os.path.join(GALLERY_FOLDER, filename)
+        if not os.path.isfile(filepath):
+            continue
+
+        doc = gallery_collection.find_one({"filename": filename})
+        try:
+            if doc and doc.get("gridfs_id"):
                 continue
 
-            doc = existing_metadata.get(filename)
+            with open(filepath, "rb") as local_file:
+                gridfs_id = gallery_fs.put(
+                    local_file,
+                    filename=filename,
+                    content_type=mimetypes.guess_type(filename)[0] or "application/octet-stream"
+                )
 
-            # Keep previously uploaded gallery files working even if they
-            # were uploaded before gallery metadata was introduced.
-            if not doc:
-                doc = {
+            if doc:
+                gallery_collection.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"gridfs_id": gridfs_id}}
+                )
+            else:
+                gallery_collection.insert_one({
                     "filename": filename,
-                    "title": os.path.splitext(filename)[0],
+                    "original_filename": filename,
+                    "title": os.path.splitext(filename)[0][:160],
                     "description": "Imported picture",
-                    "created_at": now_string()
-                }
-                try:
-                    gallery_collection.insert_one(doc.copy())
-                except DuplicateKeyError:
-                    pass
+                    "created_at": now_string(),
+                    "gridfs_id": gridfs_id
+                })
+        except Exception:
+            app.logger.exception("Could not migrate gallery file %s to GridFS", filename)
 
-            images.append({
-                "id": str(doc.get("_id", "")),
-                "filename": filename,
-                "title": doc.get("title") or os.path.splitext(filename)[0],
-                "description": doc.get("description") or "Imported picture"
-            })
+
+def gallery_images():
+    """Return all gallery metadata, including persistent GridFS images."""
+    migrate_local_gallery_files_to_gridfs()
+    images = []
+
+    for doc in gallery_collection.find().sort("created_at", 1):
+        filename = doc.get("filename")
+        if not filename:
+            continue
+
+        gridfs_id = doc.get("gridfs_id")
+        local_exists = os.path.isfile(os.path.join(GALLERY_FOLDER, os.path.basename(filename)))
+        if not gridfs_id and not local_exists:
+            # An old ephemeral Render file may already be gone. Keep the
+            # metadata out of the public gallery until a file exists.
+            continue
+
+        images.append({
+            "id": str(doc.get("_id", "")),
+            "filename": filename,
+            "title": doc.get("title") or os.path.splitext(filename)[0],
+            "description": doc.get("description") or "Imported picture"
+        })
 
     return images
 
@@ -2538,7 +2574,21 @@ body.dark .gallery-upload input[type=file] { background: rgba(20,20,35,.7); }
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    height: 560px;
+    min-height: 560px;
+    box-sizing: border-box;
+}
+.gallery-card .gallery-image-link {
+    height: 300px;
+    min-height: 300px;
+    flex: 0 0 300px;
+}
+.gallery-card .gallery-image-link img {
+    width: 100%;
+    height: 300px;
+    min-height: 300px;
+    object-fit: cover;
+    display: block;
 }
 .gallery-card .gallery-image-link {
     width: 100%;
@@ -2558,7 +2608,7 @@ body.dark .gallery-upload input[type=file] { background: rgba(20,20,35,.7); }
     overflow: hidden;
 }
 .gallery-card.uploaded-gallery-card .gallery-caption {
-    min-height: 180px;
+    min-height: 0;
 }
 .gallery-delete-form {
     margin-top: auto !important;
@@ -4964,6 +5014,7 @@ def upload_gallery():
     skipped = []
 
     for index, image in enumerate(files):
+        gridfs_id = None
         original_name = (image.filename or "").strip()
 
         if not original_name:
@@ -4996,12 +5047,16 @@ def upload_gallery():
             description = "Imported picture"
 
         try:
-            # Reset the stream in case the request middleware has inspected it.
+            # Persist the image in MongoDB GridFS. Render's local filesystem
+            # is ephemeral, so this is what makes gallery uploads survive
+            # restarts, redeploys, and new Render instances.
             image.stream.seek(0)
-            image.save(filepath)
-
-            if not os.path.isfile(filepath) or os.path.getsize(filepath) == 0:
-                raise OSError("The uploaded file was not saved correctly.")
+            gridfs_id = gallery_fs.put(
+                image.stream,
+                filename=candidate,
+                content_type=image.mimetype or mimetypes.guess_type(candidate)[0] or "application/octet-stream",
+                metadata={"original_filename": original_name}
+            )
 
             gallery_collection.insert_one({
                 "filename": candidate,
@@ -5009,12 +5064,26 @@ def upload_gallery():
                 "title": title,
                 "description": description,
                 "created_at": now_string(),
-                "author_id": session.get("staff_id")
+                "author_id": session.get("staff_id"),
+                "gridfs_id": gridfs_id
             })
+
+            # Keep a temporary local copy for fast serving during the current
+            # Render instance. The persistent copy is the GridFS version.
+            try:
+                image.stream.seek(0)
+                image.save(filepath)
+            except Exception:
+                app.logger.warning("Could not create local gallery cache for %s", candidate)
+
             added += 1
 
         except Exception as exc:
-            # Remove a partially saved file if MongoDB or the filesystem fails.
+            try:
+                if 'gridfs_id' in locals() and gridfs_id:
+                    gallery_fs.delete(gridfs_id)
+            except Exception:
+                pass
             try:
                 if os.path.isfile(filepath):
                     os.remove(filepath)
@@ -5295,6 +5364,16 @@ def delete_gallery_image(image_id):
         return redirect(url_for("home") + "#gallery")
 
     filename = os.path.basename(document.get("filename", ""))
+
+    # Delete the persistent MongoDB GridFS copy first.
+    gridfs_id = document.get("gridfs_id")
+    if gridfs_id:
+        try:
+            gallery_fs.delete(ObjectId(str(gridfs_id)))
+        except Exception as exc:
+            app.logger.warning("Could not remove GridFS gallery file %s: %s", gridfs_id, exc)
+
+    # Also remove the temporary local cache if it exists.
     if filename:
         filepath = os.path.join(GALLERY_FOLDER, filename)
         if os.path.isfile(filepath):
@@ -5314,7 +5393,25 @@ def delete_gallery_image(image_id):
 
 @app.route("/gallery-image/<path:filename>")
 def uploaded_gallery_image(filename):
-    return uploaded_image_response(GALLERY_FOLDER, filename)
+    """Serve gallery photos from persistent GridFS, with local-cache fallback."""
+    safe_filename = os.path.basename(filename)
+    document = gallery_collection.find_one({"filename": safe_filename})
+
+    if document and document.get("gridfs_id"):
+        try:
+            grid_id = ObjectId(str(document["gridfs_id"]))
+            grid_file = gallery_fs.get(grid_id)
+            return send_file(
+                grid_file,
+                mimetype=grid_file.content_type or mimetypes.guess_type(safe_filename)[0] or "application/octet-stream",
+                download_name=safe_filename,
+                conditional=True
+            )
+        except Exception as exc:
+            app.logger.warning("GridFS gallery read failed for %s: %s", safe_filename, exc)
+
+    # Backward-compatible fallback for older local gallery files.
+    return uploaded_image_response(GALLERY_FOLDER, safe_filename)
 
 # =========================================================
 # HEALTH
