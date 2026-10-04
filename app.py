@@ -6,6 +6,8 @@ import mimetypes
 from functools import wraps
 from datetime import datetime, timedelta
 import time
+import csv
+import io
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -113,6 +115,7 @@ class_messages_collection = mongo_db["class_messages"]
 news_collection = mongo_db["news_items"]
 gallery_collection = mongo_db["gallery_items"]
 viewers_collection = mongo_db["viewers"]
+audit_collection = mongo_db["superadmin_audit"]
 
 staff_accounts_collection.create_index("username", unique=True)
 gallery_collection.create_index("filename", unique=True)
@@ -312,6 +315,27 @@ def normalize_staff(doc):
         "username": doc.get("username", ""),
         "role": doc.get("role", "staff"),
         "created_at": doc.get("created_at", "")
+    }
+
+
+def audit_superadmin(action, details=""):
+    try:
+        audit_collection.insert_one({
+            "action": str(action)[:160],
+            "details": str(details)[:500],
+            "username": session.get("staff_username", ""),
+            "created_at": now_string(),
+        })
+    except Exception as exc:
+        app.logger.warning("Superadmin audit log failed: %s", exc)
+
+
+def normalize_audit(doc):
+    return {
+        "action": doc.get("action", ""),
+        "details": doc.get("details", ""),
+        "username": doc.get("username", ""),
+        "created_at": doc.get("created_at", ""),
     }
 
 
@@ -708,13 +732,21 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
 <div class="card staff-panel" id="panel-control">
 <h2>🔐 Control Room</h2><p class="meta">Private superadmin tools.</p>
 <div class="secret-grid">
-<div><strong>{{ superadmin_stats.accounts }}</strong><span>Accounts</span></div><div><strong>{{ superadmin_stats.gallery }}</strong><span>Gallery</span></div><div><strong>{{ superadmin_stats.news }}</strong><span>News</span></div><div><strong>{{ superadmin_stats.messages }}</strong><span>Messages</span></div><div><strong>{{ superadmin_stats.viewers }}</strong><span>Viewers</span></div><div><strong>{{ superadmin_stats.gridfs }}</strong><span>Stored Photos</span></div>
+<div><strong>{{ superadmin_stats.accounts }}</strong><span>Accounts</span></div><div><strong>{{ superadmin_stats.gallery }}</strong><span>Gallery</span></div><div><strong>{{ superadmin_stats.news }}</strong><span>News</span></div><div><strong>{{ superadmin_stats.messages }}</strong><span>Messages</span></div><div><strong>{{ superadmin_stats.viewers }}</strong><span>Viewers</span></div><div><strong>{{ superadmin_stats.gridfs }}</strong><span>Stored Photos</span></div><div><strong>{{ superadmin_stats.audit }}</strong><span>Audit Logs</span></div>
 </div>
 <div class="secret-actions">
 <form method="POST" action="{{ url_for('superadmin_reset_admin') }}" onsubmit="return confirm('Reset admin password?');"><button type="submit">🔑 Reset Admin</button></form>
 <form method="POST" action="{{ url_for('superadmin_clear_viewers') }}" onsubmit="return confirm('Clear all viewer analytics?');"><button type="submit" class="danger-mini">🧹 Clear Viewers</button></form>
 <form method="POST" action="{{ url_for('superadmin_cleanup_gridfs') }}" onsubmit="return confirm('Remove orphaned stored photos?');"><button type="submit">🗂️ Clean Storage</button></form>
+<form method="POST" action="{{ url_for('superadmin_clear_audit') }}" onsubmit="return confirm('Clear all superadmin audit logs?');"><button type="submit" class="danger-mini">🧾 Clear Logs</button></form>
+<a class="button" href="{{ url_for('superadmin_export_viewers') }}">📊 Export Viewers</a>
 </div>
+<h3 style="margin-top:22px">🛡️ Account Roles</h3>
+{% for staff in staff_accounts %}
+<div class="account-row"><div><strong>{{ staff["username"] }}</strong><span class="meta">{{ staff.get("role", "staff") }}</span></div>{% if staff["username"] != staff_username %}<form method="POST" action="{{ url_for('superadmin_toggle_role', account_id=staff['id']) }}"><button type="submit">{% if staff.get("role") == "superadmin" %}Make Staff{% else %}Make Superadmin{% endif %}</button></form>{% endif %}</div>
+{% endfor %}
+<h3 style="margin-top:22px">🧾 Recent Activity</h3>
+<div class="audit-list">{% for item in superadmin_audit %}<div class="audit-item"><strong>{{ item["action"] }}</strong><span>{{ item["details"] }}</span><small>{{ item["username"] }} · {{ item["created_at"] }}</small></div>{% else %}<p class="meta">No activity yet.</p>{% endfor %}</div>
 <div class="secret-note">🕶️ Superadmin mode active.</div>
 </div>
 {% endif %}
@@ -3269,12 +3301,6 @@ GALLERY
         </div>
     </div>
 
-    <div class="gallery-upload-steps" aria-label="Gallery upload steps">
-        <div class="gallery-step"><span>1</span><strong>Photos</strong><small>Choose 1+ photos</small></div>
-        <div class="gallery-step"><span>2</span><strong>Title</strong><small>One title for all</small></div>
-        <div class="gallery-step"><span>3</span><strong>Description</strong><small>One description for all</small></div>
-    </div>
-
     <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
         <div class="gallery-input-section">
             <div class="gallery-input-heading">
@@ -5204,7 +5230,8 @@ def staff_dashboard():
         viewer_views=sum(item["total_views"] for item in viewers),
         staff_username=session.get("staff_username"),
         staff_role=session.get("staff_role", "staff"),
-        superadmin_stats={"accounts": staff_accounts_collection.count_documents({}), "gallery": gallery_collection.count_documents({}), "news": news_collection.count_documents({}), "messages": class_messages_collection.count_documents({}), "viewers": viewers_collection.count_documents({}), "gridfs": mongo_db["gallery_files.files"].count_documents({})}
+        superadmin_audit=[normalize_audit(d) for d in audit_collection.find().sort("_id", -1).limit(30)],
+        superadmin_stats={"accounts": staff_accounts_collection.count_documents({}), "gallery": gallery_collection.count_documents({}), "news": news_collection.count_documents({}), "messages": class_messages_collection.count_documents({}), "viewers": viewers_collection.count_documents({}), "gridfs": mongo_db["gallery_files.files"].count_documents({}), "audit": audit_collection.count_documents({})}
     )
 
 
@@ -5275,6 +5302,42 @@ def add_staff_account():
     return redirect(url_for("staff_dashboard"))
 
 
+@app.route("/superadmin/toggle-role/<account_id>", methods=["POST"])
+@superadmin_required
+def superadmin_toggle_role(account_id):
+    try:
+        target = staff_accounts_collection.find_one({"_id": ObjectId(account_id)})
+    except (InvalidId, TypeError):
+        target = None
+    if not target or str(target.get("_id")) == session.get("staff_id"):
+        flash("That account cannot be changed here.")
+        return redirect(url_for("staff_dashboard") + "#control")
+    new_role = "staff" if target.get("role") == "superadmin" else "superadmin"
+    staff_accounts_collection.update_one({"_id": target["_id"]}, {"$set": {"role": new_role}})
+    audit_superadmin("Role changed", f"{target.get('username')} → {new_role}")
+    flash(f"{target.get('username')} is now {new_role}.")
+    return redirect(url_for("staff_dashboard") + "#control")
+
+@app.route("/superadmin/export-viewers")
+@superadmin_required
+def superadmin_export_viewers():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Viewer ID", "IP", "Location", "Device", "Browser", "OS", "Views", "Last Seen", "Last Page"])
+    for item in detailed_viewers():
+        writer.writerow([item.get("viewer_id",""), item.get("ip",""), item.get("location",""), item.get("device",""), item.get("browser",""), item.get("os",""), item.get("total_views",0), item.get("last_seen",""), item.get("last_page","")])
+    audit_superadmin("Viewer export", "Downloaded viewer analytics CSV")
+    response = app.response_class(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=jhr_viewers.csv"
+    return response
+
+@app.route("/superadmin/clear-audit", methods=["POST"])
+@superadmin_required
+def superadmin_clear_audit():
+    result = audit_collection.delete_many({})
+    flash(f"Cleared {result.deleted_count} audit logs.")
+    return redirect(url_for("staff_dashboard") + "#control")
+
 @app.route("/superadmin/delete-account/<account_id>", methods=["POST"])
 @superadmin_required
 def superadmin_delete_account(account_id):
@@ -5284,6 +5347,7 @@ def superadmin_delete_account(account_id):
         flash("That account cannot be deleted.")
         return redirect(url_for("staff_dashboard")+"#accounts")
     staff_accounts_collection.delete_one({"_id":target["_id"]})
+    audit_superadmin("Account deleted", target.get("username", ""))
     flash("Staff account deleted.")
     return redirect(url_for("staff_dashboard")+"#accounts")
 
@@ -5291,6 +5355,7 @@ def superadmin_delete_account(account_id):
 @superadmin_required
 def superadmin_reset_admin():
     staff_accounts_collection.update_one({"username":"admin"},{"$set":{"password":generate_password_hash("ChangeMe123!"),"role":"staff"}},upsert=True)
+    audit_superadmin("Admin reset", "Admin password reset to the default")
     flash("Admin password reset.")
     return redirect(url_for("staff_dashboard")+"#control")
 
@@ -5298,6 +5363,7 @@ def superadmin_reset_admin():
 @superadmin_required
 def superadmin_clear_viewers():
     result=viewers_collection.delete_many({})
+    audit_superadmin("Viewer analytics cleared", str(result.deleted_count))
     flash(f"Cleared {result.deleted_count} viewer records.")
     return redirect(url_for("staff_dashboard")+"#control")
 
@@ -5310,6 +5376,7 @@ def superadmin_cleanup_gridfs():
         if str(f["_id"]) not in referenced:
             try: gallery_fs.delete(f["_id"]); removed+=1
             except Exception: pass
+    audit_superadmin("Storage cleanup", f"Removed {removed} orphaned files")
     flash(f"Removed {removed} orphaned stored photos.")
     return redirect(url_for("staff_dashboard")+"#control")
 
