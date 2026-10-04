@@ -3235,20 +3235,61 @@ GALLERY
 
 {% if session.get("staff_id") %}
 <div class="auth-box gallery-upload">
-    <h3>📸 Import Pictures</h3>
-    <p style="color:var(--muted); margin:8px 0 15px;">Choose pictures from the same event and give the whole group one shared title and description.</p>
-    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
-        <div class="gallery-shared-fields">
-            <label for="galleryTitle">Event / Gallery Title</label>
-            <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="e.g. Community Outreach Day" required>
-            <label for="galleryDescription">Event / Gallery Description</label>
-            <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="4" placeholder="Describe the event. This description will be used for every selected photo." required></textarea>
+    <div class="gallery-upload-header">
+        <div class="gallery-upload-icon">📸</div>
+        <div>
+            <h3>Upload Gallery Photos</h3>
+            <p>Put photos from the <strong>same event</strong> together. One title and description will appear on every photo.</p>
         </div>
-        <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
-        <div id="gallerySelection" class="gallery-selection"></div>
-        <button class="upload-submit" type="submit">⬆️ Import Pictures</button>
+    </div>
+
+    <div class="gallery-upload-steps" aria-label="Gallery upload steps">
+        <div class="gallery-step"><span>1</span><strong>Add photos</strong><small>Select one or more</small></div>
+        <div class="gallery-step"><span>2</span><strong>Name the event</strong><small>One shared title</small></div>
+        <div class="gallery-step"><span>3</span><strong>Describe it</strong><small>One shared description</small></div>
+    </div>
+
+    <form method="POST" action="{{ url_for('upload_gallery') }}" enctype="multipart/form-data" id="galleryUploadForm">
+        <div class="gallery-input-section">
+            <div class="gallery-input-heading">
+                <span class="gallery-input-number">1</span>
+                <div><strong>Choose the photos</strong><small>Select all photos that belong to this event.</small></div>
+            </div>
+            <label for="galleryFiles" class="gallery-dropzone" id="galleryDropzone">
+                <span class="gallery-drop-icon">☁️</span>
+                <strong>Click to choose photos</strong>
+                <span>or drag and drop them here</span>
+                <small>JPG, JPEG, PNG, WEBP, or GIF • You can select multiple photos</small>
+                <input type="file" name="images" id="galleryFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+            </label>
+            <div id="gallerySelection" class="gallery-selection" aria-live="polite"></div>
+        </div>
+
+        <div class="gallery-input-section">
+            <div class="gallery-input-heading">
+                <span class="gallery-input-number">2</span>
+                <div><strong>Give this event a title</strong><small>This title will be used for every selected photo.</small></div>
+            </div>
+            <label class="sr-only" for="galleryTitle">Event / Gallery Title</label>
+            <input type="text" name="gallery_title" id="galleryTitle" maxlength="160" placeholder="Example: Community Outreach Day" required>
+        </div>
+
+        <div class="gallery-input-section">
+            <div class="gallery-input-heading">
+                <span class="gallery-input-number">3</span>
+                <div><strong>Describe the event</strong><small>This description will be used for every selected photo.</small></div>
+            </div>
+            <label class="sr-only" for="galleryDescription">Event / Gallery Description</label>
+            <textarea name="gallery_description" id="galleryDescription" maxlength="2000" rows="5" placeholder="Example: Our team spent the day helping children and families in the community." required></textarea>
+        </div>
+
+        <div class="gallery-upload-summary" id="galleryUploadSummary">
+            <span>📋</span>
+            <div><strong>Ready to upload?</strong><small>Select your photos, add the event title and description, then click Upload.</small></div>
+        </div>
+
+        <button class="upload-submit gallery-main-submit" type="submit">⬆️ Upload Photos to Gallery</button>
     </form>
-    <small>Supported: JPG, JPEG, PNG, WEBP, GIF. Select 1, 2, 3, or more photos from the same event; one title and description will be applied to all.</small>
 </div>
 {% endif %}
 
@@ -4560,6 +4601,9 @@ if (
 (function () {
     const fileInput = document.getElementById("galleryFiles");
     const selection = document.getElementById("gallerySelection");
+    const dropzone = document.getElementById("galleryDropzone");
+    const summary = document.getElementById("galleryUploadSummary");
+    const form = document.getElementById("galleryUploadForm");
     if (!fileInput || !selection) return;
 
     function escapeHtml(value) {
@@ -4568,26 +4612,92 @@ if (
         });
     }
 
+    function formatSize(bytes) {
+        if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
     function renderSelection() {
         const files = Array.from(fileInput.files || []);
-        if (!files.length) { selection.innerHTML = ""; return; }
-        selection.innerHTML = '<div class="gallery-selection-title">📸 ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + ' selected for this event</div>' +
+        if (!files.length) {
+            selection.innerHTML = '';
+            if (summary) summary.innerHTML = '<span>📋</span><div><strong>Ready to upload?</strong><small>Select your photos, add the event title and description, then click Upload.</small></div>';
+            return;
+        }
+        selection.innerHTML = '<div class="gallery-selection-top"><strong>📸 ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + ' selected</strong><span>All will use the same event title and description.</span></div>' +
             '<div class="gallery-selection-list">' + files.map(function (file) {
-                return '<div class="gallery-selection-item">🖼️ ' + escapeHtml(file.name) + '</div>';
+                return '<div class="gallery-selection-item"><span>🖼️</span><div><strong>' + escapeHtml(file.name) + '</strong><small>' + formatSize(file.size) + '</small></div></div>';
             }).join('') + '</div>';
+        if (summary) summary.innerHTML = '<span>✅</span><div><strong>' + files.length + ' photo' + (files.length === 1 ? '' : 's') + ' ready</strong><small>Finish the title and description below, then upload the event.</small></div>';
     }
+
     fileInput.addEventListener("change", renderSelection);
+
+    if (dropzone) {
+        ["dragenter", "dragover"].forEach(function (eventName) {
+            dropzone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                dropzone.classList.add("is-dragging");
+            });
+        });
+        ["dragleave", "drop"].forEach(function (eventName) {
+            dropzone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                dropzone.classList.remove("is-dragging");
+            });
+        });
+        dropzone.addEventListener("drop", function (event) {
+            const dropped = event.dataTransfer && event.dataTransfer.files;
+            if (!dropped || !dropped.length) return;
+            try { fileInput.files = dropped; } catch (error) {}
+            renderSelection();
+        });
+    }
+
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            if (!fileInput.files.length) {
+                event.preventDefault();
+                alert("Please choose at least one photo first.");
+                return;
+            }
+            const title = document.getElementById("galleryTitle");
+            const description = document.getElementById("galleryDescription");
+            if (!title.value.trim() || !description.value.trim()) {
+                event.preventDefault();
+                alert("Please add the event title and description before uploading.");
+            }
+        });
+    }
+
     renderSelection();
 })();
 
 /* Shared gallery event upload fields */
-.gallery-shared-fields{display:grid;gap:10px;margin:0 0 16px}
-.gallery-shared-fields label{font-weight:800;text-align:left}
-.gallery-shared-fields input,.gallery-shared-fields textarea{width:100%;box-sizing:border-box;border:1px solid rgba(109,40,217,.18);border-radius:16px;padding:13px 15px;background:rgba(255,255,255,.9);font:inherit;resize:vertical}
-.gallery-selection{margin:12px 0 16px;text-align:left}
-.gallery-selection-title{font-weight:800;margin-bottom:8px}
-.gallery-selection-list{display:flex;flex-wrap:wrap;gap:8px}
-.gallery-selection-item{padding:8px 11px;border-radius:999px;background:rgba(124,58,237,.08);font-size:.9rem}
+.gallery-upload{max-width:760px!important;padding:30px!important}
+.gallery-upload-header{display:flex;align-items:center;gap:16px;text-align:left;margin-bottom:24px}
+.gallery-upload-icon{width:58px;height:58px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;font-size:28px;box-shadow:0 12px 25px rgba(124,58,237,.25);flex:0 0 auto}
+.gallery-upload-header h3{margin:0 0 5px;font-size:1.55rem}
+.gallery-upload-header p{margin:0;color:var(--muted);line-height:1.55}
+.gallery-upload-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 24px}
+.gallery-step{padding:14px;border:1px solid rgba(124,58,237,.14);background:rgba(124,58,237,.055);border-radius:16px;text-align:left;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}
+.gallery-step span{grid-row:span 2;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#7c3aed;color:#fff;font-weight:900}
+.gallery-step strong{font-size:.92rem}.gallery-step small{color:var(--muted);font-size:.78rem}
+.gallery-input-section{padding:18px;margin:14px 0;border:1px solid rgba(124,58,237,.14);border-radius:18px;background:rgba(255,255,255,.48);text-align:left}
+body.dark .gallery-input-section{background:rgba(20,20,35,.35)}
+.gallery-input-heading{display:flex;gap:11px;align-items:flex-start;margin-bottom:13px}
+.gallery-input-number{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;font-weight:900;flex:0 0 auto}
+.gallery-input-heading strong{display:block;font-size:1rem}.gallery-input-heading small{display:block;color:var(--muted);margin-top:2px;line-height:1.4}
+.gallery-input-section input[type=text],.gallery-input-section textarea{width:100%;box-sizing:border-box;border:1px solid rgba(109,40,217,.2);border-radius:14px;padding:14px 15px;background:rgba(255,255,255,.92);color:var(--text);font:inherit;outline:none;transition:.2s;resize:vertical}
+body.dark .gallery-input-section input[type=text],body.dark .gallery-input-section textarea{background:rgba(15,15,25,.8)}
+.gallery-input-section input[type=text]:focus,.gallery-input-section textarea:focus{border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+.gallery-dropzone{min-height:155px;border:2px dashed #a855f7;border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(236,72,153,.05));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;cursor:pointer;transition:.2s;padding:18px;box-sizing:border-box}
+.gallery-dropzone:hover,.gallery-dropzone.is-dragging{border-color:#ec4899;background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(236,72,153,.1));transform:translateY(-1px)}
+.gallery-dropzone input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.gallery-drop-icon{font-size:30px}.gallery-dropzone strong{font-size:1.05rem}.gallery-dropzone span{color:var(--muted)}.gallery-dropzone small{color:var(--muted);margin-top:5px}
+.gallery-selection{margin:14px 0 0;text-align:left}.gallery-selection-top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;padding:10px 12px;border-radius:12px;background:rgba(124,58,237,.07)}.gallery-selection-top span{font-size:.8rem;color:var(--muted);text-align:right}.gallery-selection-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.gallery-selection-item{padding:9px 11px;border-radius:12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);display:flex;gap:9px;align-items:center;min-width:0}.gallery-selection-item>span{font-size:18px}.gallery-selection-item div{min-width:0}.gallery-selection-item strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem}.gallery-selection-item small{display:block;color:var(--muted);font-size:.73rem;margin-top:2px}.gallery-upload-summary{display:flex;gap:11px;align-items:center;margin:16px 0;padding:13px 15px;border-radius:14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.16);text-align:left}.gallery-upload-summary>span{font-size:21px}.gallery-upload-summary strong{display:block}.gallery-upload-summary small{display:block;color:var(--muted);margin-top:2px}.gallery-main-submit{width:100%;padding:15px!important;font-size:1rem;box-shadow:0 12px 25px rgba(124,58,237,.2)}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:700px){.gallery-upload{padding:20px!important}.gallery-upload-steps{grid-template-columns:1fr}.gallery-selection-list{grid-template-columns:1fr}.gallery-selection-top{flex-direction:column;align-items:flex-start}.gallery-selection-top span{text-align:left}.gallery-upload-header{align-items:flex-start}}
 
 /* =====================================================
    IMAGE ERROR HANDLER
