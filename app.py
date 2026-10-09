@@ -898,6 +898,39 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 @media(max-width:700px){body{padding:16px!important}.hero{min-height:590px!important}.hero h1{font-size:clamp(62px,17vw,100px)!important}.card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card{border-radius:17px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 
+
+/* EYE-COMFORT PATCH: calmer surfaces and readable text for gallery, coordinators and staff message form */
+.gallery-card,.coordinator-card,.auth-box,#coding-classes{
+  background:#1b1029!important;
+  background-image:linear-gradient(145deg,rgba(37,23,56,.98),rgba(23,14,36,.98))!important;
+  color:#f4edff!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.18)!important;
+}
+.gallery-card h2,.gallery-card h3,.gallery-card strong,
+.coordinator-section-title,.coordinator-info h3,.coordinator-role,
+#coding-classes h3,#coding-classes label{
+  color:#f3eaff!important;text-shadow:none!important;
+}
+.gallery-card p,.gallery-card small,.coordinator-info p,.coordinator-location,
+#coding-classes p,.auth-box p{color:#cbbddd!important;}
+.coordinator-role{background:rgba(139,92,246,.15)!important;border:1px solid rgba(192,160,230,.2)!important;}
+.gallery-card a,.coordinator-card a,#coding-classes a{color:#d8b4fe!important;}
+#coding-classes input,#coding-classes textarea,#coding-classes select,
+.auth-box input,.auth-box textarea,.auth-box select{
+  background:#110a1b!important;color:#f7f1ff!important;
+  border:1px solid #59436f!important;box-shadow:none!important;
+}
+#coding-classes input::placeholder,#coding-classes textarea::placeholder,
+.auth-box input::placeholder,.auth-box textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+#coding-classes input:focus,#coding-classes textarea:focus,#coding-classes select:focus,
+.auth-box input:focus,.auth-box textarea:focus,.auth-box select:focus{
+  border-color:#a78bfa!important;outline:2px solid rgba(167,139,250,.18)!important;box-shadow:none!important;
+}
+#coding-classes button,.auth-box button{box-shadow:0 5px 14px rgba(0,0,0,.18)!important;filter:none!important;}
+.gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
+@media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
+
 </style>
 </head>
 <body>
@@ -3336,6 +3369,39 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 @media(max-width:700px){body{padding:16px!important}.hero{min-height:590px!important}.hero h1{font-size:clamp(62px,17vw,100px)!important}.card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card{border-radius:17px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 
+
+/* EYE-COMFORT PATCH: calmer surfaces and readable text for gallery, coordinators and staff message form */
+.gallery-card,.coordinator-card,.auth-box,#coding-classes{
+  background:#1b1029!important;
+  background-image:linear-gradient(145deg,rgba(37,23,56,.98),rgba(23,14,36,.98))!important;
+  color:#f4edff!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.18)!important;
+}
+.gallery-card h2,.gallery-card h3,.gallery-card strong,
+.coordinator-section-title,.coordinator-info h3,.coordinator-role,
+#coding-classes h3,#coding-classes label{
+  color:#f3eaff!important;text-shadow:none!important;
+}
+.gallery-card p,.gallery-card small,.coordinator-info p,.coordinator-location,
+#coding-classes p,.auth-box p{color:#cbbddd!important;}
+.coordinator-role{background:rgba(139,92,246,.15)!important;border:1px solid rgba(192,160,230,.2)!important;}
+.gallery-card a,.coordinator-card a,#coding-classes a{color:#d8b4fe!important;}
+#coding-classes input,#coding-classes textarea,#coding-classes select,
+.auth-box input,.auth-box textarea,.auth-box select{
+  background:#110a1b!important;color:#f7f1ff!important;
+  border:1px solid #59436f!important;box-shadow:none!important;
+}
+#coding-classes input::placeholder,#coding-classes textarea::placeholder,
+.auth-box input::placeholder,.auth-box textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+#coding-classes input:focus,#coding-classes textarea:focus,#coding-classes select:focus,
+.auth-box input:focus,.auth-box textarea:focus,.auth-box select:focus{
+  border-color:#a78bfa!important;outline:2px solid rgba(167,139,250,.18)!important;box-shadow:none!important;
+}
+#coding-classes button,.auth-box button{box-shadow:0 5px 14px rgba(0,0,0,.18)!important;filter:none!important;}
+.gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
+@media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
+
 </style>
 
 </head>
@@ -5455,6 +5521,39 @@ footer p{color:#b8a4d2!important}
 input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shadow:0 0 0 3px rgba(168,85,247,.15),0 0 22px rgba(168,85,247,.1)!important}
 @media(max-width:700px){body{padding:16px!important}.hero{min-height:590px!important}.hero h1{font-size:clamp(62px,17vw,100px)!important}.card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card{border-radius:17px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+
+
+/* EYE-COMFORT PATCH: calmer surfaces and readable text for gallery, coordinators and staff message form */
+.gallery-card,.coordinator-card,.auth-box,#coding-classes{
+  background:#1b1029!important;
+  background-image:linear-gradient(145deg,rgba(37,23,56,.98),rgba(23,14,36,.98))!important;
+  color:#f4edff!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.18)!important;
+}
+.gallery-card h2,.gallery-card h3,.gallery-card strong,
+.coordinator-section-title,.coordinator-info h3,.coordinator-role,
+#coding-classes h3,#coding-classes label{
+  color:#f3eaff!important;text-shadow:none!important;
+}
+.gallery-card p,.gallery-card small,.coordinator-info p,.coordinator-location,
+#coding-classes p,.auth-box p{color:#cbbddd!important;}
+.coordinator-role{background:rgba(139,92,246,.15)!important;border:1px solid rgba(192,160,230,.2)!important;}
+.gallery-card a,.coordinator-card a,#coding-classes a{color:#d8b4fe!important;}
+#coding-classes input,#coding-classes textarea,#coding-classes select,
+.auth-box input,.auth-box textarea,.auth-box select{
+  background:#110a1b!important;color:#f7f1ff!important;
+  border:1px solid #59436f!important;box-shadow:none!important;
+}
+#coding-classes input::placeholder,#coding-classes textarea::placeholder,
+.auth-box input::placeholder,.auth-box textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+#coding-classes input:focus,#coding-classes textarea:focus,#coding-classes select:focus,
+.auth-box input:focus,.auth-box textarea:focus,.auth-box select:focus{
+  border-color:#a78bfa!important;outline:2px solid rgba(167,139,250,.18)!important;box-shadow:none!important;
+}
+#coding-classes button,.auth-box button{box-shadow:0 5px 14px rgba(0,0,0,.18)!important;filter:none!important;}
+.gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
+@media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
 
 </style>
 </head>
