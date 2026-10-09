@@ -876,6 +876,43 @@ a{color:#d8b4fe}
 .section>.title:after,.section-title:after{background:linear-gradient(90deg,#7c3aed,#d946ef,#f0abfc)!important;box-shadow:0 0 18px rgba(192,132,252,.32)!important}
 .card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card,.game,.contact,.mission-card{background:linear-gradient(145deg,rgba(34,17,54,.88),rgba(15,8,27,.91))!important;border:1px solid rgba(192,132,252,.19)!important;border-radius:22px!important;box-shadow:0 18px 55px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.035)!important;backdrop-filter:blur(16px)!important;transition:transform .24s,border-color .24s,box-shadow .24s!important}
 .news-card:hover,.project-mini-card:hover,.service-card:hover,.owner-card:hover,.gallery-card:hover,.game:hover,.contact:hover{border-color:rgba(216,180,254,.48)!important;box-shadow:0 24px 62px rgba(0,0,0,.32),0 0 32px rgba(147,51,234,.12)!important}
+
+/* GAMES SECTION — calmer contrast, clear hierarchy, comfortable purple surfaces */
+.games-grid,.games-container,.game-grid{gap:22px!important;}
+.game,.game-card,.games-card,.game-item,#games .card,#games .game{
+  background:#191024!important;
+  background-image:linear-gradient(145deg,rgba(39,24,57,.96),rgba(23,14,35,.98))!important;
+  color:#f3ecfb!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  border-radius:20px!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.2)!important;
+  text-shadow:none!important;
+}
+.game h1,.game h2,.game h3,.game-card h1,.game-card h2,.game-card h3,
+.games-card h1,.games-card h2,.games-card h3,#games h2,#games h3{
+  color:#f4eaff!important;text-shadow:none!important;letter-spacing:normal!important;
+}
+.game p,.game-card p,.games-card p,.game small,.game-card small,#games p{
+  color:#cbbddd!important;text-shadow:none!important;line-height:1.65!important;
+}
+.game a,.game-card a,.games-card a,#games a{color:#d8b4fe!important;}
+.game button,.game-card button,.games-card button,#games button,
+.game .btn,.game-card .btn,.games-card .btn{
+  background:#7042a8!important;background-image:linear-gradient(120deg,#68409a,#8356b5)!important;
+  color:#fff!important;border:1px solid rgba(220,200,245,.25)!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.16)!important;filter:none!important;
+}
+.game:hover,.game-card:hover,.games-card:hover,.game-item:hover{
+  transform:translateY(-2px)!important;border-color:rgba(192,160,230,.38)!important;
+  box-shadow:0 14px 32px rgba(0,0,0,.24)!important;
+}
+.game img,.game-card img,.games-card img{border-radius:12px;}
+.game input,.game textarea,.game select,.game-card input,.game-card textarea,.game-card select{
+  background:#110a1b!important;color:#f7f1ff!important;border-color:#59436f!important;box-shadow:none!important;
+}
+.game input::placeholder,.game textarea::placeholder,.game-card input::placeholder,.game-card textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+@media(prefers-reduced-motion:reduce){.game,.game-card,.games-card,.game-item{transition:none!important;transform:none!important;}}
+
 input,textarea,select{background:rgba(11,5,22,.9)!important;color:#fbf7ff!important;border:1px solid rgba(192,132,252,.28)!important;border-radius:13px!important}
 input:focus,textarea:focus,select:focus{outline:none!important;border-color:#c084fc!important;box-shadow:0 0 0 3px rgba(168,85,247,.15),0 0 24px rgba(168,85,247,.12)!important}
 footer{background:linear-gradient(180deg,#10071d,#07030d)!important;border-top:1px solid rgba(192,132,252,.22)!important;color:#e9d5ff!important}
@@ -3347,6 +3384,43 @@ a{color:#d8b4fe}
 .section>.title:after,.section-title:after{background:linear-gradient(90deg,#7c3aed,#d946ef,#f0abfc)!important;box-shadow:0 0 18px rgba(192,132,252,.32)!important}
 .card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card,.game,.contact,.mission-card{background:linear-gradient(145deg,rgba(34,17,54,.88),rgba(15,8,27,.91))!important;border:1px solid rgba(192,132,252,.19)!important;border-radius:22px!important;box-shadow:0 18px 55px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.035)!important;backdrop-filter:blur(16px)!important;transition:transform .24s,border-color .24s,box-shadow .24s!important}
 .news-card:hover,.project-mini-card:hover,.service-card:hover,.owner-card:hover,.gallery-card:hover,.game:hover,.contact:hover{border-color:rgba(216,180,254,.48)!important;box-shadow:0 24px 62px rgba(0,0,0,.32),0 0 32px rgba(147,51,234,.12)!important}
+
+/* GAMES SECTION — calmer contrast, clear hierarchy, comfortable purple surfaces */
+.games-grid,.games-container,.game-grid{gap:22px!important;}
+.game,.game-card,.games-card,.game-item,#games .card,#games .game{
+  background:#191024!important;
+  background-image:linear-gradient(145deg,rgba(39,24,57,.96),rgba(23,14,35,.98))!important;
+  color:#f3ecfb!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  border-radius:20px!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.2)!important;
+  text-shadow:none!important;
+}
+.game h1,.game h2,.game h3,.game-card h1,.game-card h2,.game-card h3,
+.games-card h1,.games-card h2,.games-card h3,#games h2,#games h3{
+  color:#f4eaff!important;text-shadow:none!important;letter-spacing:normal!important;
+}
+.game p,.game-card p,.games-card p,.game small,.game-card small,#games p{
+  color:#cbbddd!important;text-shadow:none!important;line-height:1.65!important;
+}
+.game a,.game-card a,.games-card a,#games a{color:#d8b4fe!important;}
+.game button,.game-card button,.games-card button,#games button,
+.game .btn,.game-card .btn,.games-card .btn{
+  background:#7042a8!important;background-image:linear-gradient(120deg,#68409a,#8356b5)!important;
+  color:#fff!important;border:1px solid rgba(220,200,245,.25)!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.16)!important;filter:none!important;
+}
+.game:hover,.game-card:hover,.games-card:hover,.game-item:hover{
+  transform:translateY(-2px)!important;border-color:rgba(192,160,230,.38)!important;
+  box-shadow:0 14px 32px rgba(0,0,0,.24)!important;
+}
+.game img,.game-card img,.games-card img{border-radius:12px;}
+.game input,.game textarea,.game select,.game-card input,.game-card textarea,.game-card select{
+  background:#110a1b!important;color:#f7f1ff!important;border-color:#59436f!important;box-shadow:none!important;
+}
+.game input::placeholder,.game textarea::placeholder,.game-card input::placeholder,.game-card textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+@media(prefers-reduced-motion:reduce){.game,.game-card,.games-card,.game-item{transition:none!important;transform:none!important;}}
+
 input,textarea,select{background:rgba(11,5,22,.9)!important;color:#fbf7ff!important;border:1px solid rgba(192,132,252,.28)!important;border-radius:13px!important}
 input:focus,textarea:focus,select:focus{outline:none!important;border-color:#c084fc!important;box-shadow:0 0 0 3px rgba(168,85,247,.15),0 0 24px rgba(168,85,247,.12)!important}
 footer{background:linear-gradient(180deg,#10071d,#07030d)!important;border-top:1px solid rgba(192,132,252,.22)!important;color:#e9d5ff!important}
@@ -5500,6 +5574,43 @@ a{color:#d8b4fe}
 .section>.title:after,.section-title:after{background:linear-gradient(90deg,#7c3aed,#d946ef,#f0abfc)!important;box-shadow:0 0 18px rgba(192,132,252,.32)!important}
 .card,.news-card,.project-mini-card,.service-card,.owner-card,.gallery-card,.game,.contact,.mission-card{background:linear-gradient(145deg,rgba(34,17,54,.88),rgba(15,8,27,.91))!important;border:1px solid rgba(192,132,252,.19)!important;border-radius:22px!important;box-shadow:0 18px 55px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.035)!important;backdrop-filter:blur(16px)!important;transition:transform .24s,border-color .24s,box-shadow .24s!important}
 .news-card:hover,.project-mini-card:hover,.service-card:hover,.owner-card:hover,.gallery-card:hover,.game:hover,.contact:hover{border-color:rgba(216,180,254,.48)!important;box-shadow:0 24px 62px rgba(0,0,0,.32),0 0 32px rgba(147,51,234,.12)!important}
+
+/* GAMES SECTION — calmer contrast, clear hierarchy, comfortable purple surfaces */
+.games-grid,.games-container,.game-grid{gap:22px!important;}
+.game,.game-card,.games-card,.game-item,#games .card,#games .game{
+  background:#191024!important;
+  background-image:linear-gradient(145deg,rgba(39,24,57,.96),rgba(23,14,35,.98))!important;
+  color:#f3ecfb!important;
+  border:1px solid rgba(192,160,230,.22)!important;
+  border-radius:20px!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.2)!important;
+  text-shadow:none!important;
+}
+.game h1,.game h2,.game h3,.game-card h1,.game-card h2,.game-card h3,
+.games-card h1,.games-card h2,.games-card h3,#games h2,#games h3{
+  color:#f4eaff!important;text-shadow:none!important;letter-spacing:normal!important;
+}
+.game p,.game-card p,.games-card p,.game small,.game-card small,#games p{
+  color:#cbbddd!important;text-shadow:none!important;line-height:1.65!important;
+}
+.game a,.game-card a,.games-card a,#games a{color:#d8b4fe!important;}
+.game button,.game-card button,.games-card button,#games button,
+.game .btn,.game-card .btn,.games-card .btn{
+  background:#7042a8!important;background-image:linear-gradient(120deg,#68409a,#8356b5)!important;
+  color:#fff!important;border:1px solid rgba(220,200,245,.25)!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.16)!important;filter:none!important;
+}
+.game:hover,.game-card:hover,.games-card:hover,.game-item:hover{
+  transform:translateY(-2px)!important;border-color:rgba(192,160,230,.38)!important;
+  box-shadow:0 14px 32px rgba(0,0,0,.24)!important;
+}
+.game img,.game-card img,.games-card img{border-radius:12px;}
+.game input,.game textarea,.game select,.game-card input,.game-card textarea,.game-card select{
+  background:#110a1b!important;color:#f7f1ff!important;border-color:#59436f!important;box-shadow:none!important;
+}
+.game input::placeholder,.game textarea::placeholder,.game-card input::placeholder,.game-card textarea::placeholder{color:#aa9bb9!important;opacity:1!important;}
+@media(prefers-reduced-motion:reduce){.game,.game-card,.games-card,.game-item{transition:none!important;transform:none!important;}}
+
 input,textarea,select{background:rgba(11,5,22,.9)!important;color:#fbf7ff!important;border:1px solid rgba(192,132,252,.28)!important;border-radius:13px!important}
 input:focus,textarea:focus,select:focus{outline:none!important;border-color:#c084fc!important;box-shadow:0 0 0 3px rgba(168,85,247,.15),0 0 24px rgba(168,85,247,.12)!important}
 footer{background:linear-gradient(180deg,#10071d,#07030d)!important;border-top:1px solid rgba(192,132,252,.22)!important;color:#e9d5ff!important}
