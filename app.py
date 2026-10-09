@@ -841,6 +841,20 @@ button:not(.staff-tab):hover{filter:brightness(1.15);transform:translateY(-1px)}
 
 
 /* JHR PURPLE NEBULA REDESIGN — vivid, layered, unmistakably purple */
+/* ACCESSIBILITY FIX: calmer purple palette, comfortable contrast */
+body{background-image:radial-gradient(ellipse at 15% 8%,rgba(124,58,237,.13),transparent 36%),radial-gradient(ellipse at 85% 18%,rgba(168,85,247,.09),transparent 32%),linear-gradient(180deg,#10091b 0%,#0b0712 55%,#08050d 100%)!important;background-color:#0b0712!important;color:#f4edff!important}
+body:before{opacity:.055!important;background-size:64px 64px!important}
+.join{background:linear-gradient(145deg,rgba(35,18,56,.98),rgba(19,10,32,.98))!important;color:#f4edff!important;border:1px solid rgba(192,132,252,.25)!important;box-shadow:0 18px 55px rgba(0,0,0,.28),0 0 28px rgba(124,58,237,.08)!important}
+.join h2{color:#fff!important;text-shadow:0 2px 18px rgba(168,85,247,.22)!important}
+.join p{color:#d7c9e8!important}
+.join .viewer-counter{background:linear-gradient(110deg,#6d28d9,#8b5cf6)!important;color:#fff!important;border:1px solid rgba(233,213,255,.28)!important;box-shadow:0 6px 18px rgba(109,40,217,.2)!important}
+.join .viewer-counter strong,.join .viewer-counter span{color:#fff!important}
+footer{background:#090610!important;color:#e7ddf4!important}
+footer p{color:#c5b7d8!important}
+footer .footer-logo,footer h2,footer h3{color:#c4a1ff!important;text-shadow:none!important}
+button,.btn,.button{box-shadow:0 5px 14px rgba(124,58,237,.16)!important}
+@media(prefers-reduced-motion:reduce){body:before{display:none!important}}
+
 :root{--jhr-purple:#a855f7;--jhr-violet:#7c3aed;--jhr-lilac:#e9d5ff;--jhr-pink:#f0abfc;--jhr-night:#090511;--jhr-panel:rgba(25,12,43,.82);--jhr-edge:rgba(192,132,252,.28);--jhr-glow:rgba(168,85,247,.28)}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{background-color:#090511!important;background-image:radial-gradient(ellipse at 12% 4%,rgba(147,51,234,.26),transparent 34%),radial-gradient(ellipse at 88% 16%,rgba(192,38,211,.17),transparent 29%),radial-gradient(ellipse at 52% 100%,rgba(109,40,217,.17),transparent 42%),linear-gradient(180deg,#090511 0%,#10071d 48%,#08040f 100%)!important;color:#fbf7ff!important}
@@ -3265,6 +3279,20 @@ footer p{color:#8ea9c7!important}footer .footer-logo{color:#54f4ff!important}
 
 
 /* JHR PURPLE NEBULA REDESIGN — vivid, layered, unmistakably purple */
+/* ACCESSIBILITY FIX: calmer purple palette, comfortable contrast */
+body{background-image:radial-gradient(ellipse at 15% 8%,rgba(124,58,237,.13),transparent 36%),radial-gradient(ellipse at 85% 18%,rgba(168,85,247,.09),transparent 32%),linear-gradient(180deg,#10091b 0%,#0b0712 55%,#08050d 100%)!important;background-color:#0b0712!important;color:#f4edff!important}
+body:before{opacity:.055!important;background-size:64px 64px!important}
+.join{background:linear-gradient(145deg,rgba(35,18,56,.98),rgba(19,10,32,.98))!important;color:#f4edff!important;border:1px solid rgba(192,132,252,.25)!important;box-shadow:0 18px 55px rgba(0,0,0,.28),0 0 28px rgba(124,58,237,.08)!important}
+.join h2{color:#fff!important;text-shadow:0 2px 18px rgba(168,85,247,.22)!important}
+.join p{color:#d7c9e8!important}
+.join .viewer-counter{background:linear-gradient(110deg,#6d28d9,#8b5cf6)!important;color:#fff!important;border:1px solid rgba(233,213,255,.28)!important;box-shadow:0 6px 18px rgba(109,40,217,.2)!important}
+.join .viewer-counter strong,.join .viewer-counter span{color:#fff!important}
+footer{background:#090610!important;color:#e7ddf4!important}
+footer p{color:#c5b7d8!important}
+footer .footer-logo,footer h2,footer h3{color:#c4a1ff!important;text-shadow:none!important}
+button,.btn,.button{box-shadow:0 5px 14px rgba(124,58,237,.16)!important}
+@media(prefers-reduced-motion:reduce){body:before{display:none!important}}
+
 :root{--jhr-purple:#a855f7;--jhr-violet:#7c3aed;--jhr-lilac:#e9d5ff;--jhr-pink:#f0abfc;--jhr-night:#090511;--jhr-panel:rgba(25,12,43,.82);--jhr-edge:rgba(192,132,252,.28);--jhr-glow:rgba(168,85,247,.28)}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{background-color:#090511!important;background-image:radial-gradient(ellipse at 12% 4%,rgba(147,51,234,.26),transparent 34%),radial-gradient(ellipse at 88% 16%,rgba(192,38,211,.17),transparent 29%),radial-gradient(ellipse at 52% 100%,rgba(109,40,217,.17),transparent 42%),linear-gradient(180deg,#090511 0%,#10071d 48%,#08040f 100%)!important;color:#fbf7ff!important}
@@ -5371,6 +5399,20 @@ body{background:radial-gradient(ellipse at 18% 10%,rgba(79,70,229,.28),transpare
 
 
 /* JHR PURPLE NEBULA REDESIGN — vivid, layered, unmistakably purple */
+/* ACCESSIBILITY FIX: calmer purple palette, comfortable contrast */
+body{background-image:radial-gradient(ellipse at 15% 8%,rgba(124,58,237,.13),transparent 36%),radial-gradient(ellipse at 85% 18%,rgba(168,85,247,.09),transparent 32%),linear-gradient(180deg,#10091b 0%,#0b0712 55%,#08050d 100%)!important;background-color:#0b0712!important;color:#f4edff!important}
+body:before{opacity:.055!important;background-size:64px 64px!important}
+.join{background:linear-gradient(145deg,rgba(35,18,56,.98),rgba(19,10,32,.98))!important;color:#f4edff!important;border:1px solid rgba(192,132,252,.25)!important;box-shadow:0 18px 55px rgba(0,0,0,.28),0 0 28px rgba(124,58,237,.08)!important}
+.join h2{color:#fff!important;text-shadow:0 2px 18px rgba(168,85,247,.22)!important}
+.join p{color:#d7c9e8!important}
+.join .viewer-counter{background:linear-gradient(110deg,#6d28d9,#8b5cf6)!important;color:#fff!important;border:1px solid rgba(233,213,255,.28)!important;box-shadow:0 6px 18px rgba(109,40,217,.2)!important}
+.join .viewer-counter strong,.join .viewer-counter span{color:#fff!important}
+footer{background:#090610!important;color:#e7ddf4!important}
+footer p{color:#c5b7d8!important}
+footer .footer-logo,footer h2,footer h3{color:#c4a1ff!important;text-shadow:none!important}
+button,.btn,.button{box-shadow:0 5px 14px rgba(124,58,237,.16)!important}
+@media(prefers-reduced-motion:reduce){body:before{display:none!important}}
+
 :root{--jhr-purple:#a855f7;--jhr-violet:#7c3aed;--jhr-lilac:#e9d5ff;--jhr-pink:#f0abfc;--jhr-night:#090511;--jhr-panel:rgba(25,12,43,.82);--jhr-edge:rgba(192,132,252,.28);--jhr-glow:rgba(168,85,247,.28)}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{background-color:#090511!important;background-image:radial-gradient(ellipse at 12% 4%,rgba(147,51,234,.26),transparent 34%),radial-gradient(ellipse at 88% 16%,rgba(192,38,211,.17),transparent 29%),radial-gradient(ellipse at 52% 100%,rgba(109,40,217,.17),transparent 42%),linear-gradient(180deg,#090511 0%,#10071d 48%,#08040f 100%)!important;color:#fbf7ff!important}
