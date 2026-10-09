@@ -182,47 +182,37 @@ def get_client_ip():
 
 
 def track_viewer(page="/"):
-    """Track one browser visitor while keeping a stable anonymous viewer ID in a cookie."""
+    """Atomically record one page view for a stable anonymous browser ID."""
     viewer_id = request.cookies.get("jhr_viewer_id")
-    new_viewer = False
-
     if not viewer_id or not re.fullmatch(r"[a-f0-9]{32}", viewer_id):
         viewer_id = uuid4().hex
-        new_viewer = True
 
     now = now_string()
-    ua = request.headers.get("User-Agent", "")
-    device_info = parse_user_agent(ua)
+    device_info = parse_user_agent(request.headers.get("User-Agent", ""))
     client_ip = get_client_ip()
 
-    existing = viewers_collection.find_one({"viewer_id": viewer_id})
-    if existing:
-        viewers_collection.update_one(
-            {"viewer_id": viewer_id},
-            {
-                "$set": {
-                    "last_seen": now,
-                    "last_page": page,
-                    "last_ip": client_ip,
-                    **device_info,
-                },
-                "$inc": {"total_views": 1},
+    # One atomic upsert prevents simultaneous requests from creating duplicate
+    # records for the same browser. $setOnInsert preserves the first visit/IP.
+    viewers_collection.update_one(
+        {"viewer_id": viewer_id},
+        {
+            "$set": {
+                "last_seen": now,
+                "last_page": page,
+                "last_ip": client_ip,
+                **device_info,
             },
-        )
-    else:
-        viewers_collection.insert_one({
-            "viewer_id": viewer_id,
-            "first_seen": now,
-            "last_seen": now,
-            "last_page": page,
-            "first_ip": client_ip,
-            "last_ip": client_ip,
-            "total_views": 1,
-            **device_info,
-        })
-        new_viewer = True
-
-    return viewer_id, new_viewer
+            "$setOnInsert": {
+                "viewer_id": viewer_id,
+                "first_seen": now,
+                "first_ip": client_ip,
+                "total_views": 0,
+            },
+            "$inc": {"total_views": 1},
+        },
+        upsert=True,
+    )
+    return viewer_id, True
 
 
 def detailed_viewers():
@@ -5049,27 +5039,31 @@ document.addEventListener(
 
 @app.route("/")
 def home():
+    from flask import make_response
 
-    global viewer_count
-
-    viewer_count += 1
     viewer_id, _ = track_viewer("/")
 
-    response = render_template_string(
+    # Count only valid tracked browser IDs, not legacy/empty MongoDB records.
+    viewer_count = viewers_collection.count_documents({
+        "viewer_id": {"$type": "string", "$ne": ""}
+    })
+
+    response = make_response(render_template_string(
         HTML,
-        viewer_count=viewers_collection.count_documents({}),
+        viewer_count=viewer_count,
         uploaded_images=gallery_images(),
         news_items=news_items()
-    )
-    from flask import make_response
-    response = make_response(response)
+    ))
     response.set_cookie(
         "jhr_viewer_id",
         viewer_id,
         max_age=60 * 60 * 24 * 365,
         httponly=True,
+        secure=bool(request.is_secure),
         samesite="Lax",
+        path="/",
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 
 
