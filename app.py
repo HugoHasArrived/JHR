@@ -206,7 +206,6 @@ def track_viewer(page="/"):
                 "viewer_id": viewer_id,
                 "first_seen": now,
                 "first_ip": client_ip,
-                "total_views": 0,
             },
             "$inc": {"total_views": 1},
         },
