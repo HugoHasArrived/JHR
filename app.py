@@ -1058,10 +1058,7 @@ body.dark footer p{color:#d0c4df!important}body.dark footer .footer-logo{color:#
 /* Keep intentionally colorful hero and mission sections legible in both modes. */
 .hero,.color-section,.mission-card{color:#fff!important}.hero h1,.hero h2,.hero h3,.hero p,.hero .subtitle,.color-section h1,.color-section h2,.color-section h3,.color-section p,.mission-card h3,.mission-card p{color:#fff!important}
 @media(prefers-reduced-motion:reduce){body,body *{transition:none!important}}
-/* LIGHT MODE TEXT FIX: black text throughout the staff dashboard. */
-body:not(.dark) *:not(button):not(#dashboardThemeToggle){color:#111111!important;text-shadow:none!important}
-body:not(.dark) button,body:not(.dark) #dashboardThemeToggle,body:not(.dark) button *{color:#ffffff!important}
-body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#111111!important}
+/* Removed a global black-text override that broke contrast on purple sections. */
 
 
 /* JHR COMFORTABLE LIGHT MODE — muted lavender, never stark white */
@@ -1166,6 +1163,36 @@ body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;bor
 body:not(.dark) .viewer-table td{color:#292432!important}
 @media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
 
+
+/* FINAL LIGHT THEME: soft, colorful lavender surfaces with comfortable contrast. */
+body:not(.dark){background:linear-gradient(180deg,#e9e3f0 0%,#e4dbea 48%,#eee7f2 100%)!important;color:#292432!important}
+body:not(.dark) .mission-card{background:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;background-image:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;color:#292432!important;border:1px solid #bca7d2!important;box-shadow:0 12px 28px rgba(70,45,95,.12)!important}
+body:not(.dark) .mission-card h1,body:not(.dark) .mission-card h2,body:not(.dark) .mission-card h3,body:not(.dark) .mission-card h4,body:not(.dark) .mission-card p,body:not(.dark) .mission-card strong,body:not(.dark) .mission-card span{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .color-section{background:linear-gradient(135deg,#d8c9e7,#cbb7df 52%,#e1d2e9)!important;color:#292432!important}
+body:not(.dark) .color-section h1,body:not(.dark) .color-section h2,body:not(.dark) .color-section h3,body:not(.dark) .color-section p,body:not(.dark) .color-section .subtitle{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .section:not(.color-section){background:transparent!important}
+body:not(.dark) .card:not(.mission-card),body:not(.dark) .service-card,body:not(.dark) .project-mini-card,body:not(.dark) .news-card,body:not(.dark) .owner-card,body:not(.dark) .gallery-card,body:not(.dark) .game,body:not(.dark) .game-card,body:not(.dark) .games-card,body:not(.dark) .game-item,body:not(.dark) .contact,body:not(.dark) .coordinator-card,body:not(.dark) .auth-box{background:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;background-image:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;color:#292432!important;border-color:#cfc1dc!important;box-shadow:0 8px 24px rgba(65,44,84,.08)!important}
+body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-card) h2,body:not(.dark) .card:not(.mission-card) h3,body:not(.dark) .card:not(.mission-card) h4,body:not(.dark) .service-card h3,body:not(.dark) .project-mini-card h3,body:not(.dark) .news-card h3,body:not(.dark) .owner-card h3,body:not(.dark) .gallery-card h3,body:not(.dark) .coordinator-info h3{color:#292432!important}
+body:not(.dark) .card:not(.mission-card) p,body:not(.dark) .service-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .news-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .coordinator-info p{color:#554b60!important}
+body:not(.dark) button:not(.nav-btn):not(.staff-tab){box-shadow:0 5px 14px rgba(89,60,120,.12)}
+
+
+/* ACCESSIBILITY HOTFIX: in LIGHT MODE, never leave dark panels with black text. */
+html:has(body:not(.dark)){color-scheme:light!important}
+body:not(.dark){background:#e9e4ef!important;color:#292432!important}
+body:not(.dark) .hero{background:linear-gradient(135deg,#ded2ed 0%,#cbb7e2 48%,#e8cfe4 100%)!important;color:#292432!important;border-color:#c2afd5!important}
+body:not(.dark) .hero h1,body:not(.dark) .hero h2,body:not(.dark) .hero h3,body:not(.dark) .hero p,body:not(.dark) .hero .badge{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .color-section,body:not(.dark) .color-section *{text-shadow:none!important}
+body:not(.dark) .color-section{background:linear-gradient(135deg,#ded2ed 0%,#d3c2e4 52%,#ead8e9 100%)!important;color:#292432!important}
+body:not(.dark) .mission-card,body:not(.dark) .card,body:not(.dark) .service-card,body:not(.dark) .project-mini-card,body:not(.dark) .news-card,body:not(.dark) .owner-card,body:not(.dark) .gallery-card,body:not(.dark) .game,body:not(.dark) .game-card,body:not(.dark) .games-card,body:not(.dark) .game-item,body:not(.dark) .contact,body:not(.dark) .coordinator-card,body:not(.dark) .auth-box,body:not(.dark) #coding-classes,body:not(.dark) .gallery-upload,body:not(.dark) .gallery-input-section{background:#f0ebf5!important;background-image:none!important;color:#292432!important;border-color:#cfc1dc!important}
+body:not(.dark) .mission-card *,body:not(.dark) .card *,body:not(.dark) .service-card *,body:not(.dark) .project-mini-card *,body:not(.dark) .news-card *,body:not(.dark) .owner-card *,body:not(.dark) .gallery-card *,body:not(.dark) .game *,body:not(.dark) .game-card *,body:not(.dark) .games-card *,body:not(.dark) .game-item *,body:not(.dark) .contact *,body:not(.dark) .coordinator-card *,body:not(.dark) .auth-box *,body:not(.dark) #coding-classes *{text-shadow:none!important}
+body:not(.dark) .mission-card h1,body:not(.dark) .mission-card h2,body:not(.dark) .mission-card h3,body:not(.dark) .mission-card h4,body:not(.dark) .mission-card p,body:not(.dark) .mission-card strong,body:not(.dark) .mission-card span,body:not(.dark) .card h1,body:not(.dark) .card h2,body:not(.dark) .card h3,body:not(.dark) .card h4,body:not(.dark) .card p,body:not(.dark) .card strong,body:not(.dark) .card label,body:not(.dark) .service-card *,body:not(.dark) .project-mini-card *,body:not(.dark) .news-card *,body:not(.dark) .owner-card *,body:not(.dark) .gallery-card *,body:not(.dark) .game *,body:not(.dark) .game-card *,body:not(.dark) .games-card *,body:not(.dark) .game-item *,body:not(.dark) .contact *,body:not(.dark) .coordinator-card *,body:not(.dark) .auth-box *,body:not(.dark) #coding-classes *{color:#292432!important}
+body:not(.dark) .section>.title,body:not(.dark) .section h2,body:not(.dark) .section h3,body:not(.dark) .subtitle,body:not(.dark) .section p{color:#393044!important;text-shadow:none!important}
+body:not(.dark) nav{background:rgba(239,233,246,.97)!important;border-color:#cfc1dc!important}
+body:not(.dark) nav a,body:not(.dark) .logo strong,body:not(.dark) .logo-name-wrap strong{color:#39234f!important}
+body:not(.dark) footer{background:#ddd2e8!important;color:#292432!important}
+body:not(.dark) footer *{color:#393044!important}
+body:not(.dark) .button,body:not(.dark) button:not(.nav-btn):not(.staff-tab),body:not(.dark) .nav-btn{color:#fff!important}
 </style>
 </head>
 <body>
@@ -3894,6 +3921,19 @@ body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;bor
 body:not(.dark) .viewer-table td{color:#292432!important}
 @media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
 
+
+/* FINAL LIGHT THEME: soft, colorful lavender surfaces with comfortable contrast. */
+body:not(.dark){background:linear-gradient(180deg,#e9e3f0 0%,#e4dbea 48%,#eee7f2 100%)!important;color:#292432!important}
+body:not(.dark) .mission-card{background:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;background-image:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;color:#292432!important;border:1px solid #bca7d2!important;box-shadow:0 12px 28px rgba(70,45,95,.12)!important}
+body:not(.dark) .mission-card h1,body:not(.dark) .mission-card h2,body:not(.dark) .mission-card h3,body:not(.dark) .mission-card h4,body:not(.dark) .mission-card p,body:not(.dark) .mission-card strong,body:not(.dark) .mission-card span{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .color-section{background:linear-gradient(135deg,#d8c9e7,#cbb7df 52%,#e1d2e9)!important;color:#292432!important}
+body:not(.dark) .color-section h1,body:not(.dark) .color-section h2,body:not(.dark) .color-section h3,body:not(.dark) .color-section p,body:not(.dark) .color-section .subtitle{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .section:not(.color-section){background:transparent!important}
+body:not(.dark) .card:not(.mission-card),body:not(.dark) .service-card,body:not(.dark) .project-mini-card,body:not(.dark) .news-card,body:not(.dark) .owner-card,body:not(.dark) .gallery-card,body:not(.dark) .game,body:not(.dark) .game-card,body:not(.dark) .games-card,body:not(.dark) .game-item,body:not(.dark) .contact,body:not(.dark) .coordinator-card,body:not(.dark) .auth-box{background:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;background-image:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;color:#292432!important;border-color:#cfc1dc!important;box-shadow:0 8px 24px rgba(65,44,84,.08)!important}
+body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-card) h2,body:not(.dark) .card:not(.mission-card) h3,body:not(.dark) .card:not(.mission-card) h4,body:not(.dark) .service-card h3,body:not(.dark) .project-mini-card h3,body:not(.dark) .news-card h3,body:not(.dark) .owner-card h3,body:not(.dark) .gallery-card h3,body:not(.dark) .coordinator-info h3{color:#292432!important}
+body:not(.dark) .card:not(.mission-card) p,body:not(.dark) .service-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .news-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .coordinator-info p{color:#554b60!important}
+body:not(.dark) button:not(.nav-btn):not(.staff-tab){box-shadow:0 5px 14px rgba(89,60,120,.12)}
+
 </style>
 
 </head>
@@ -6150,6 +6190,19 @@ body:not(.dark) .staff-tab.active{background:#705786!important;color:#fff!import
 body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;border-color:#cfc3da!important}
 body:not(.dark) .viewer-table td{color:#292432!important}
 @media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
+
+
+/* FINAL LIGHT THEME: soft, colorful lavender surfaces with comfortable contrast. */
+body:not(.dark){background:linear-gradient(180deg,#e9e3f0 0%,#e4dbea 48%,#eee7f2 100%)!important;color:#292432!important}
+body:not(.dark) .mission-card{background:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;background-image:linear-gradient(145deg,#d9c9e8,#cbb8df)!important;color:#292432!important;border:1px solid #bca7d2!important;box-shadow:0 12px 28px rgba(70,45,95,.12)!important}
+body:not(.dark) .mission-card h1,body:not(.dark) .mission-card h2,body:not(.dark) .mission-card h3,body:not(.dark) .mission-card h4,body:not(.dark) .mission-card p,body:not(.dark) .mission-card strong,body:not(.dark) .mission-card span{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .color-section{background:linear-gradient(135deg,#d8c9e7,#cbb7df 52%,#e1d2e9)!important;color:#292432!important}
+body:not(.dark) .color-section h1,body:not(.dark) .color-section h2,body:not(.dark) .color-section h3,body:not(.dark) .color-section p,body:not(.dark) .color-section .subtitle{color:#292432!important;text-shadow:none!important}
+body:not(.dark) .section:not(.color-section){background:transparent!important}
+body:not(.dark) .card:not(.mission-card),body:not(.dark) .service-card,body:not(.dark) .project-mini-card,body:not(.dark) .news-card,body:not(.dark) .owner-card,body:not(.dark) .gallery-card,body:not(.dark) .game,body:not(.dark) .game-card,body:not(.dark) .games-card,body:not(.dark) .game-item,body:not(.dark) .contact,body:not(.dark) .coordinator-card,body:not(.dark) .auth-box{background:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;background-image:linear-gradient(145deg,#f0ebf5,#e8e0ef)!important;color:#292432!important;border-color:#cfc1dc!important;box-shadow:0 8px 24px rgba(65,44,84,.08)!important}
+body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-card) h2,body:not(.dark) .card:not(.mission-card) h3,body:not(.dark) .card:not(.mission-card) h4,body:not(.dark) .service-card h3,body:not(.dark) .project-mini-card h3,body:not(.dark) .news-card h3,body:not(.dark) .owner-card h3,body:not(.dark) .gallery-card h3,body:not(.dark) .coordinator-info h3{color:#292432!important}
+body:not(.dark) .card:not(.mission-card) p,body:not(.dark) .service-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .news-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .coordinator-info p{color:#554b60!important}
+body:not(.dark) button:not(.nav-btn):not(.staff-tab){box-shadow:0 5px 14px rgba(89,60,120,.12)}
 
 </style>
 </head>
