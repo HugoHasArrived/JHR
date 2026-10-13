@@ -729,7 +729,7 @@ body.dark #themeBtn,body.dark #langBtn{color:#fff!important}
 #panel-viewers .viewer-detail{color:#c4b8d8!important;line-height:1.5}
 #panel-viewers .viewer-table-wrap+ p{padding:28px 18px;text-align:center;color:#c4b8d8!important;background:rgba(139,92,246,.06);border:1px dashed rgba(196,181,253,.2);border-radius:16px}
 @media(max-width:800px){body{padding:14px!important}#panel-viewers .viewer-summary{grid-template-columns:1fr;gap:10px}#panel-viewers .viewer-summary>div{min-height:100px;padding:18px!important}#panel-viewers h2{flex-wrap:wrap}#panel-viewers h2:after{margin-left:0}#panel-viewers .viewer-table{min-width:1180px}}
-@media(prefers-reduced-motion:reduce){#panel-viewers .viewer-summary>div{transition:none}#panel-viewers .viewer-summary>div:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){ #panel-viewers .viewer-summary>div{transition:none}#panel-viewers .viewer-summary>div:hover{transform:none}}
 
 
 
