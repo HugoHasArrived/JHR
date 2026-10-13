@@ -3599,6 +3599,55 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 .gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
 @media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
 
+/* FINAL THEME LAYER: the public site must obey the saved theme everywhere. */
+html{background:#f7f5fc!important}
+html body:not(.dark){
+  --text:#241632!important;--muted:#62566f!important;--background:#f7f5fc!important;
+  --card:#ffffff!important;--border:#ded4eb!important;
+  --jhr-ink:#241632!important;--jhr-muted:#62566f!important;
+  color:#241632!important;background:#f7f5fc!important;
+  background-image:linear-gradient(180deg,#fbfaff 0%,#f4effb 54%,#ffffff 100%)!important;
+}
+html body:not(.dark):before{opacity:.035!important;background-image:linear-gradient(rgba(109,40,217,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(109,40,217,.055) 1px,transparent 1px)!important}
+html body:not(.dark) nav{background:rgba(255,255,255,.97)!important;border:1px solid #e2d7ef!important;box-shadow:0 8px 28px rgba(54,32,80,.09)!important;backdrop-filter:blur(16px)!important}
+html body:not(.dark) .logo strong,html body:not(.dark) .logo-name-wrap strong,html body:not(.dark) .logo-name-wrap small{color:#321c49!important;text-shadow:none!important}
+html body:not(.dark) .nav-links a{color:#514360!important;text-shadow:none!important}
+html body:not(.dark) .nav-links a:hover,html body:not(.dark) .nav-links a.active-nav{background:#eee7fa!important;color:#5b21b6!important;box-shadow:none!important}
+html body:not(.dark) .nav-btn{background:#fff!important;color:#39234f!important;border:1px solid #d8cde8!important}
+/* A lighter purple hero remains colorful, but is no longer a dark block. */
+html body:not(.dark) .hero{background:radial-gradient(ellipse at 75% 10%,rgba(236,72,153,.13),transparent 32%),radial-gradient(ellipse at 20% 90%,rgba(124,58,237,.14),transparent 38%),linear-gradient(135deg,#fff 0%,#f2eaff 56%,#fceeff 100%)!important;border:1px solid #d9c6f0!important;box-shadow:0 20px 55px rgba(71,35,105,.12)!important}
+html body:not(.dark) .hero:before{opacity:.2!important}
+html body:not(.dark) .hero:after{opacity:.5!important;border-color:#c4a5e8!important}
+html body:not(.dark) .hero h1{background:linear-gradient(110deg,#4c1d95,#7c3aed 48%,#be185d)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;text-shadow:none!important;filter:none!important}
+html body:not(.dark) .hero p,html body:not(.dark) .hero .subtitle,html body:not(.dark) .hero-content p,html body:not(.dark) .hero-organization-title{color:#514360!important;text-shadow:none!important}
+html body:not(.dark) .hero .badge{background:#f0e7ff!important;color:#5b21b6!important;border-color:#d8c4f3!important;box-shadow:none!important}
+html body:not(.dark) .section>.title,html body:not(.dark) .section h2,html body:not(.dark) .section h3,html body:not(.dark) .section-title{color:#29163c!important;text-shadow:none!important}
+html body:not(.dark) .subtitle,html body:not(.dark) .section p{color:#62566f!important;text-shadow:none!important}
+html body:not(.dark) .card,html body:not(.dark) .card:not(.mission-card),html body:not(.dark) .news-card,html body:not(.dark) .project-mini-card,html body:not(.dark) .service-card,html body:not(.dark) .owner-card,html body:not(.dark) .gallery-card,html body:not(.dark) .game,html body:not(.dark) .game-card,html body:not(.dark) .games-card,html body:not(.dark) .game-item,html body:not(.dark) .contact,html body:not(.dark) .coordinator-card,html body:not(.dark) .auth-box,html body:not(.dark) #coding-classes,html body:not(.dark) .gallery-upload,html body:not(.dark) .gallery-input-section,html body:not(.dark) .join,html body:not(.dark) .stat-card,html body:not(.dark) .stats>*{
+  background:#fff!important;background-image:none!important;color:#241632!important;border-color:#ded4eb!important;
+  box-shadow:0 8px 26px rgba(45,25,80,.075)!important;backdrop-filter:none!important
+}
+html body:not(.dark) .card h1,html body:not(.dark) .card h2,html body:not(.dark) .card h3,html body:not(.dark) .card h4,html body:not(.dark) .news-card h3,html body:not(.dark) .project-mini-card h3,html body:not(.dark) .service-card h3,html body:not(.dark) .owner-card h3,html body:not(.dark) .gallery-card h3,html body:not(.dark) .coordinator-info h3,html body:not(.dark) .coordinator-section-title,html body:not(.dark) .auth-box h3,html body:not(.dark) #coding-classes h3,html body:not(.dark) label{color:#29163c!important;text-shadow:none!important}
+html body:not(.dark) .card p,html body:not(.dark) .news-card p,html body:not(.dark) .project-mini-card p,html body:not(.dark) .service-card p,html body:not(.dark) .owner-card p,html body:not(.dark) .gallery-card p,html body:not(.dark) .game p,html body:not(.dark) .contact p,html body:not(.dark) .coordinator-info p,html body:not(.dark) .auth-box p,html body:not(.dark) #coding-classes p,html body:not(.dark) .gallery-caption p,html body:not(.dark) .join p,html body:not(.dark) footer p{color:#62566f!important;text-shadow:none!important}
+html body:not(.dark) .gallery-caption,html body:not(.dark) .gallery-meta-row,html body:not(.dark) .gallery-input-section,html body:not(.dark) .gallery-selection-item,html body:not(.dark) .gallery-selection-top,html body:not(.dark) .coordinator-role{background:#f7f3fc!important;color:#39234f!important;border-color:#ded4eb!important}
+html body:not(.dark) a:not(.button):not(.btn){color:#5b21b6!important}
+html body:not(.dark) input,html body:not(.dark) textarea,html body:not(.dark) select,html body:not(.dark) .game input,html body:not(.dark) .game textarea,html body:not(.dark) .auth-box input,html body:not(.dark) .auth-box textarea,html body:not(.dark) #coding-classes input,html body:not(.dark) #coding-classes textarea{background:#fff!important;color:#241632!important;border:1px solid #cfc2df!important;box-shadow:none!important}
+html body:not(.dark) input::placeholder,html body:not(.dark) textarea::placeholder{color:#756780!important;opacity:1!important}
+html body:not(.dark) footer{background:#f0eaf7!important;color:#39234f!important;border-top:1px solid #ded4eb!important}
+html body:not(.dark) footer h2,html body:not(.dark) footer h3,html body:not(.dark) footer .footer-logo{color:#5b21b6!important;text-shadow:none!important}
+html body:not(.dark) .join .viewer-counter,html body:not(.dark) .button,html body:not(.dark) .btn,html body:not(.dark) button:not(.nav-btn){color:#fff!important}
+
+/* Dark mode: retain the purple night design but enforce readable text and controls. */
+html body.dark{color-scheme:dark!important;background-color:#0b0712!important;color:#f7f3ff!important}
+html body.dark nav{background:rgba(12,5,22,.94)!important}
+html body.dark .card,html body.dark .news-card,html body.dark .project-mini-card,html body.dark .service-card,html body.dark .owner-card,html body.dark .gallery-card,html body.dark .game,html body.dark .game-card,html body.dark .games-card,html body.dark .game-item,html body.dark .contact,html body.dark .coordinator-card,html body.dark .auth-box,html body.dark #coding-classes,html body.dark .gallery-upload,html body.dark .gallery-input-section,html body.dark .join,html body.dark .stat-card,html body.dark .stats>*{color:#f7f3ff!important}
+html body.dark .card h1,html body.dark .card h2,html body.dark .card h3,html body.dark .card h4,html body.dark .news-card h3,html body.dark .project-mini-card h3,html body.dark .service-card h3,html body.dark .owner-card h3,html body.dark .gallery-card h3,html body.dark .coordinator-info h3,html body.dark label{color:#f5eaff!important}
+html body.dark .card p,html body.dark .news-card p,html body.dark .project-mini-card p,html body.dark .service-card p,html body.dark .owner-card p,html body.dark .gallery-card p,html body.dark .game p,html body.dark .contact p,html body.dark .coordinator-info p,html body.dark .auth-box p,html body.dark #coding-classes p{color:#cbbddd!important}
+html body.dark input,html body.dark textarea,html body.dark select{background:#110a1b!important;color:#f7f1ff!important;border-color:#59436f!important}
+html body.dark input::placeholder,html body.dark textarea::placeholder{color:#b9a9c9!important;opacity:1!important}
+html body.dark footer{background:#090610!important;color:#e7ddf4!important}
+@media(prefers-reduced-motion:reduce){html body:before{animation:none!important}}
+
 </style>
 
 </head>
@@ -5206,59 +5255,26 @@ function toggleLanguage() {
 ===================================================== */
 
 function applyTheme() {
-
-    const saved =
-        localStorage.getItem(
-            "jhrTheme"
-        );
-
-
-    if (
-        saved === "dark"
-    ) {
-
-        document.body.classList.add(
-            "dark"
-        );
-
-        const themeButton = document.getElementById("themeBtn");
-        if (themeButton) themeButton.textContent = "☀️";
-
-    } else {
-
-        document.body.classList.remove(
-            "dark"
-        );
-
-        const themeButton = document.getElementById("themeBtn");
-        if (themeButton) themeButton.textContent = "🌙";
-
+    const saved = localStorage.getItem("jhrTheme");
+    const isDark = saved === "dark";
+    document.body.classList.toggle("dark", isDark);
+    document.body.classList.toggle("light", !isDark);
+    document.documentElement.classList.toggle("dark-theme", isDark);
+    document.documentElement.classList.toggle("light-theme", !isDark);
+    const themeButton = document.getElementById("themeBtn");
+    if (themeButton) {
+        themeButton.textContent = isDark ? "☀️" : "🌙";
+        themeButton.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+        themeButton.setAttribute("title", isDark ? "Switch to light mode" : "Switch to dark mode");
+        themeButton.setAttribute("aria-pressed", isDark ? "true" : "false");
     }
-
 }
 
 
 function toggleTheme() {
-
-    const dark =
-        document.body.classList.toggle(
-            "dark"
-        );
-
-
-    localStorage.setItem(
-        "jhrTheme",
-        dark
-            ? "dark"
-            : "light"
-    );
-
-
-    const themeButton = document.getElementById("themeBtn");
-    if (themeButton) {
-        themeButton.textContent = dark ? "☀️" : "🌙";
-    }
-
+    const dark = !document.body.classList.contains("dark");
+    localStorage.setItem("jhrTheme", dark ? "dark" : "light");
+    applyTheme();
 }
 
 
