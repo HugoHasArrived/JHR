@@ -1178,8 +1178,26 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
     const tabs = document.querySelectorAll('.staff-tab');
     const panels = document.querySelectorAll('.staff-panel');
     function activate(name) {
-        tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.panel === name));
-        panels.forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + name));
+        const panelGroups = {
+            messages: ['panel-messages'],
+            news: ['panel-news', 'panel-published-news'],
+            viewers: ['panel-viewers'],
+            accounts: ['panel-accounts', 'panel-staff'],
+            password: ['panel-password'],
+            control: ['panel-control']
+        };
+
+        tabs.forEach(tab => {
+            const selected = tab.dataset.panel === name;
+            tab.classList.toggle('active', selected);
+            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+
+        const visiblePanels = panelGroups[name] || [];
+        panels.forEach(panel => {
+            panel.classList.toggle('active', visiblePanels.includes(panel.id));
+        });
+
         history.replaceState(null, '', '#' + name);
     }
     tabs.forEach(tab => tab.addEventListener('click', () => activate(tab.dataset.panel)));
@@ -5749,7 +5767,8 @@ def login():
             session["staff_role"] = staff.get("role", "staff")
             session["staff_last_activity"] = time.time()
             flash("Welcome, " + staff.get("username", username) + "!")
-            return redirect(url_for("home"))
+            # Send staff directly to their dashboard after a successful login.
+            return redirect(url_for("staff_dashboard"))
 
         flash("Invalid staff username or password.")
 
