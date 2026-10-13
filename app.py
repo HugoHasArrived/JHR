@@ -549,6 +549,51 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sa
 .wrap{max-width:1280px!important}.card{background:rgba(27,18,42,.78)!important;border:1px solid rgba(196,160,255,.16)!important;border-radius:24px!important;box-shadow:0 22px 65px rgba(0,0,0,.28)!important;backdrop-filter:blur(18px)!important}.staff-tabs{gap:10px!important}.staff-tab{border:1px solid rgba(196,160,255,.15)!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;padding:12px 16px!important;transition:.2s ease!important}.staff-tab:hover{transform:translateY(-2px)!important;background:rgba(139,92,246,.15)!important}.staff-tab.active{background:linear-gradient(135deg,#7c3aed,#db2777)!important;box-shadow:0 12px 30px rgba(124,58,237,.25)!important}.viewer-summary>div{border-radius:18px!important;background:rgba(255,255,255,.045)!important;border-color:rgba(196,160,255,.13)!important}.viewer-table-wrap{border-radius:18px!important;border-color:rgba(196,160,255,.13)!important}.viewer-table th{background:#130b1f!important}.notice{border:1px solid rgba(196,160,255,.15)!important;background:rgba(124,58,237,.12)!important;border-radius:14px!important}.secret-tab{background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(124,58,237,.14))!important}.account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(196,160,255,.1)}.account-row .meta{display:block;margin-top:4px}.danger-mini{background:#b42318!important}.secret-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.secret-grid>div{padding:16px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(196,160,255,.12)}.secret-grid strong{font-size:25px;display:block}.secret-grid span{color:#aab4c2;font-size:13px}.secret-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.secret-health{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.secret-health>div{padding:12px;border:1px solid rgba(124,58,237,.14);border-radius:14px;background:rgba(124,58,237,.05)}.secret-health span{display:block;color:var(--muted);font-size:.75rem}.secret-health strong{display:block;margin-top:4px}.secret-danger-zone{margin-top:18px;padding:16px;border:1px solid rgba(239,68,68,.22);border-radius:16px;background:rgba(239,68,68,.04)}.secret-danger-zone h3{margin:0 0 4px}.secret-danger-zone form{margin-top:10px}@media(max-width:700px){.secret-health{grid-template-columns:1fr}}
 .secret-note{margin-top:16px;padding:12px;border-radius:12px;background:rgba(234,179,8,.08);color:#f3d98a}@media(max-width:800px){.secret-grid,.secret-actions{grid-template-columns:1fr}}
 
+/* Accessible persistent light/dark themes for the staff dashboard */
+:root{color-scheme:light;--dash-bg:#f5f3fb;--dash-card:#ffffff;--dash-text:#211833;--dash-muted:#5f566f;--dash-border:#d8cde8;--dash-field:#ffffff;--dash-table-alt:#f4effb;--dash-link:#5b21b6}
+body{background:var(--dash-bg)!important;color:var(--dash-text)!important;transition:background .2s,color .2s}
+.card{background:var(--dash-card)!important;color:var(--dash-text)!important;border-color:var(--dash-border)!important;box-shadow:0 12px 32px rgba(45,25,80,.09)!important}
+.card h2,.card h3,.card strong,.card label{color:var(--dash-text)!important}
+.card p,.meta,.viewer-detail,.secret-grid span,.secret-health span{color:var(--dash-muted)!important}
+input,textarea,select{background:var(--dash-field)!important;color:var(--dash-text)!important;border-color:var(--dash-border)!important}
+input::placeholder,textarea::placeholder{color:#756b84!important;opacity:1}
+a{color:var(--dash-link)}
+.staff-tabs{background:#ebe5f5!important;border-color:var(--dash-border)!important}
+.staff-tab{background:#fff!important;color:#403451!important;border-color:var(--dash-border)!important}
+.staff-tab.active{color:#fff!important}
+.viewer-summary>div,.secret-grid>div,.secret-health>div,.secret-danger-zone{background:var(--dash-table-alt)!important;border-color:var(--dash-border)!important}
+.viewer-summary strong{color:var(--dash-text)!important;text-shadow:none!important}
+.viewer-summary span{color:var(--dash-muted)!important}
+.viewer-table-wrap{background:var(--dash-card)!important;border-color:var(--dash-border)!important}
+.viewer-table th{background:#e9e0f5!important;color:#352348!important;border-color:var(--dash-border)!important}
+.viewer-table td,.viewer-table tbody tr:nth-child(even) td{background:var(--dash-card)!important;color:var(--dash-text)!important;border-color:#e7e0ef!important}
+.viewer-table tbody tr:hover td{background:#eee5fa!important;color:#211833!important}
+.viewer-table td strong{color:#211833!important}.viewer-table code{background:#eee7fa!important;color:#5b21b6!important}
+.ip-cell{color:#7e22ce!important}.notice{background:#f0e8ff!important;color:#392052!important;border-color:#d8c5f5!important}
+.message,.account-row{border-color:var(--dash-border)!important}.secret-note{background:#fff7d6!important;color:#674d00!important}
+.danger-mini{color:#fff!important}
+.theme-toggle-row{display:flex;justify-content:flex-end;align-items:center;margin:12px 0 0}
+#dashboardThemeToggle{background:linear-gradient(120deg,#6d28d9,#a855f7)!important;color:#fff!important;border:0!important;border-radius:12px!important;padding:11px 15px!important;font-weight:800!important}
+body.dark{color-scheme:dark;--dash-bg:#080611;--dash-card:#171023;--dash-text:#f7f2ff;--dash-muted:#d0c4df;--dash-border:#443253;--dash-field:#100b19;--dash-table-alt:#21152f;--dash-link:#d8b4fe;background:radial-gradient(ellipse at 12% 0%,rgba(124,58,237,.16),transparent 34%),linear-gradient(180deg,#080611,#120a1d)!important;color:var(--dash-text)!important}
+body.dark .card{background:linear-gradient(145deg,#1c1229,#120c1d)!important;color:var(--dash-text)!important;border-color:var(--dash-border)!important;box-shadow:0 16px 40px rgba(0,0,0,.22)!important}
+body.dark .card h2,body.dark .card h3,body.dark .card strong,body.dark .card label{color:#f7f2ff!important}
+body.dark .card p,body.dark .meta,body.dark .viewer-detail,body.dark .secret-grid span,body.dark .secret-health span{color:#d0c4df!important}
+body.dark input,body.dark textarea,body.dark select{background:#100b19!important;color:#f7f2ff!important;border-color:#51405f!important}
+body.dark input::placeholder,body.dark textarea::placeholder{color:#aa9bb9!important}
+body.dark .staff-tabs{background:#0e0918!important;border-color:#382544!important}
+body.dark .staff-tab{background:#171023!important;color:#ded1ee!important;border-color:#443253!important}
+body.dark .staff-tab.active{color:#fff!important}
+body.dark .viewer-summary>div,body.dark .secret-grid>div,body.dark .secret-health>div,body.dark .secret-danger-zone{background:#21152f!important;border-color:#443253!important}
+body.dark .viewer-summary strong{color:#fff!important}body.dark .viewer-summary span{color:#c8b9d9!important}
+body.dark .viewer-table-wrap{background:#100b19!important;border-color:#443253!important}
+body.dark .viewer-table th{background:#21152f!important;color:#e9d5ff!important;border-color:#443253!important}
+body.dark .viewer-table td,body.dark .viewer-table tbody tr:nth-child(even) td{background:#120c1e!important;color:#f0e8fb!important;border-color:#30223d!important}
+body.dark .viewer-table tbody tr:hover td{background:#2a1b3b!important;color:#fff!important}
+body.dark .viewer-table td strong{color:#fff!important}body.dark .viewer-table code{background:#28183a!important;color:#e9d5ff!important}
+body.dark .ip-cell{color:#f0abfc!important}body.dark .notice{background:#251735!important;color:#f4eaff!important;border-color:#49315e!important}
+body.dark .message,body.dark .account-row{border-color:#382544!important}body.dark .secret-note{background:#332812!important;color:#ffe7a0!important}
+@media(max-width:700px){.theme-toggle-row{justify-content:stretch}#dashboardThemeToggle{width:100%}}
+
 /* Viewer analytics contrast fix: keep every value readable on the dark dashboard */
 #panel-viewers, #panel-viewers p, #panel-viewers label, #panel-viewers td,
 #panel-viewers th, #panel-viewers strong, #panel-viewers span, #panel-viewers code,
@@ -968,6 +1013,51 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 .gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
 @media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
 
+
+/* FINAL ACCESSIBILITY OVERRIDES — public website light and dark modes */
+:root{color-scheme:light;--site-bg:#f7f5fc;--site-panel:#fff;--site-ink:#241632;--site-muted:#5f536e;--site-line:#ded4eb;--site-field:#fff;--site-field-ink:#241632}
+body:not(.dark){background:linear-gradient(180deg,#fbfaff,#f4effb 58%,#fff)!important;background-color:#f7f5fc!important;color:var(--site-ink)!important}
+body:not(.dark) nav{background:rgba(255,255,255,.96)!important;border-color:#ded4eb!important}
+body:not(.dark) .logo strong,body:not(.dark) .logo-name-wrap strong{color:#321c49!important;text-shadow:none!important}
+body:not(.dark) .logo-name-wrap small{color:#5f536e!important}
+body:not(.dark) .nav-links a{color:#514360!important}
+body:not(.dark) .nav-links a:hover,body:not(.dark) .nav-links a.active-nav{color:#5b21b6!important;background:#eee7fa!important}
+body:not(.dark) .nav-btn{background:#fff!important;color:#39234f!important;border-color:#d8cde8!important}
+body:not(.dark) .section:not(.color-section) .title,body:not(.dark) .section h2:not(.hero h2),body:not(.dark) .section h3{color:#29163c!important;text-shadow:none!important}
+body:not(.dark) .subtitle,body:not(.dark) .who-we-are-box p{color:#5f536e!important}
+body:not(.dark) .card:not(.mission-card),body:not(.dark) .news-card,body:not(.dark) .project-mini-card,body:not(.dark) .service-card,body:not(.dark) .owner-card,body:not(.dark) .gallery-card,body:not(.dark) .game,body:not(.dark) .game-card,body:not(.dark) .games-card,body:not(.dark) .game-item,body:not(.dark) .contact,body:not(.dark) .coordinator-card,body:not(.dark) .auth-box,body:not(.dark) #coding-classes,body:not(.dark) .gallery-upload{background:#fff!important;background-image:none!important;color:#241632!important;border-color:#ded4eb!important;box-shadow:0 10px 30px rgba(45,25,80,.08)!important}
+body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-card) h2,body:not(.dark) .card:not(.mission-card) h3,body:not(.dark) .card:not(.mission-card) h4,body:not(.dark) .news-card h3,body:not(.dark) .project-mini-card h3,body:not(.dark) .service-card h3,body:not(.dark) .owner-card h3,body:not(.dark) .gallery-card h3,body:not(.dark) .coordinator-info h3,body:not(.dark) #coding-classes h3,body:not(.dark) #coding-classes label,body:not(.dark) .auth-box h3{color:#29163c!important;text-shadow:none!important}
+body:not(.dark) .card p,body:not(.dark) .news-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .service-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .game p,body:not(.dark) .game-card p,body:not(.dark) .games-card p,body:not(.dark) .contact p,body:not(.dark) .coordinator-info p,body:not(.dark) #coding-classes p,body:not(.dark) .auth-box p,body:not(.dark) .gallery-caption p{color:#5f536e!important;text-shadow:none!important}
+body:not(.dark) .gallery-caption,body:not(.dark) .gallery-meta-row,body:not(.dark) .gallery-input-section,body:not(.dark) .gallery-selection-item,body:not(.dark) .gallery-selection-top{background:#f7f3fc!important;color:#241632!important;border-color:#ded4eb!important}
+body:not(.dark) .gallery-caption h3,body:not(.dark) .gallery-input-heading strong,body:not(.dark) .gallery-step strong,body:not(.dark) .gallery-selection-item strong{color:#29163c!important}
+body:not(.dark) .gallery-caption p,body:not(.dark) .gallery-input-heading small,body:not(.dark) .gallery-step small,body:not(.dark) .gallery-selection-item small,body:not(.dark) .gallery-selection-top span{color:#5f536e!important}
+body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,body:not(.dark) .game input,body:not(.dark) .game textarea,body:not(.dark) .game select,body:not(.dark) .auth-box input,body:not(.dark) .auth-box textarea,body:not(.dark) #coding-classes input,body:not(.dark) #coding-classes textarea{background:#fff!important;color:#241632!important;border-color:#cfc2df!important}
+body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#756780!important;opacity:1!important}
+body:not(.dark) a:not(.button):not(.btn){color:#5b21b6}
+body:not(.dark) footer{background:#f0eaf7!important;color:#241632!important;border-color:#ded4eb!important}
+body:not(.dark) footer p{color:#514360!important}body:not(.dark) footer .footer-logo{color:#5b21b6!important}
+body.dark{color-scheme:dark;--site-bg:#0b0712;--site-panel:#1b1228;--site-ink:#f7f2ff;--site-muted:#d0c4df;--site-line:#493653;--site-field:#120c1c;--site-field-ink:#f7f2ff}
+body.dark{color:#f7f2ff!important}
+body.dark nav{background:rgba(20,12,31,.96)!important;border-color:#493653!important}
+body.dark .logo strong,body.dark .logo-name-wrap strong{color:#f4e8ff!important;text-shadow:none!important}
+body.dark .logo-name-wrap small,body.dark .nav-links a{color:#d0c4df!important}
+body.dark .nav-btn{background:#21152f!important;color:#f7f2ff!important;border-color:#493653!important}
+body.dark .section:not(.color-section) .title,body.dark .section h2,body.dark .section h3{color:#f4eaff!important;text-shadow:none!important}
+body.dark .subtitle,body.dark .who-we-are-box p{color:#d0c4df!important}
+body.dark .card:not(.mission-card),body.dark .news-card,body.dark .project-mini-card,body.dark .service-card,body.dark .owner-card,body.dark .gallery-card,body.dark .game,body.dark .game-card,body.dark .games-card,body.dark .game-item,body.dark .contact,body.dark .coordinator-card,body.dark .auth-box,body.dark #coding-classes,body.dark .gallery-upload{background:#1b1228!important;background-image:none!important;color:#f7f2ff!important;border-color:#493653!important}
+body.dark .card:not(.mission-card) h1,body.dark .card:not(.mission-card) h2,body.dark .card:not(.mission-card) h3,body.dark .card:not(.mission-card) h4,body.dark .news-card h3,body.dark .project-mini-card h3,body.dark .service-card h3,body.dark .owner-card h3,body.dark .gallery-card h3,body.dark .coordinator-info h3,body.dark #coding-classes h3,body.dark #coding-classes label,body.dark .auth-box h3{color:#f7f2ff!important;text-shadow:none!important}
+body.dark .card p,body.dark .news-card p,body.dark .project-mini-card p,body.dark .service-card p,body.dark .owner-card p,body.dark .gallery-card p,body.dark .game p,body.dark .game-card p,body.dark .games-card p,body.dark .contact p,body.dark .coordinator-info p,body.dark #coding-classes p,body.dark .auth-box p,body.dark .gallery-caption p{color:#d0c4df!important;text-shadow:none!important}
+body.dark .gallery-caption,body.dark .gallery-meta-row,body.dark .gallery-input-section,body.dark .gallery-selection-item,body.dark .gallery-selection-top{background:#241732!important;color:#f7f2ff!important;border-color:#493653!important}
+body.dark .gallery-caption h3,body.dark .gallery-input-heading strong,body.dark .gallery-step strong,body.dark .gallery-selection-item strong{color:#f7f2ff!important}
+body.dark .gallery-caption p,body.dark .gallery-input-heading small,body.dark .gallery-step small,body.dark .gallery-selection-item small,body.dark .gallery-selection-top span{color:#d0c4df!important}
+body.dark input,body.dark textarea,body.dark select,body.dark .game input,body.dark .game textarea,body.dark .game select,body.dark .auth-box input,body.dark .auth-box textarea,body.dark #coding-classes input,body.dark #coding-classes textarea{background:#120c1c!important;color:#f7f2ff!important;border-color:#51405f!important}
+body.dark input::placeholder,body.dark textarea::placeholder{color:#aa9bb9!important;opacity:1!important}
+body.dark a:not(.button):not(.btn){color:#d8b4fe}
+body.dark footer{background:#100a18!important;color:#f7f2ff!important;border-color:#493653!important}
+body.dark footer p{color:#d0c4df!important}body.dark footer .footer-logo{color:#e9d5ff!important}
+/* Keep intentionally colorful hero and mission sections legible in both modes. */
+.hero,.color-section,.mission-card{color:#fff!important}.hero h1,.hero h2,.hero h3,.hero p,.hero .subtitle,.color-section h1,.color-section h2,.color-section h3,.color-section p,.mission-card h3,.mission-card p{color:#fff!important}
+@media(prefers-reduced-motion:reduce){body,body *{transition:none!important}}
 </style>
 </head>
 <body>
@@ -975,6 +1065,7 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 <p><a href="{{ url_for('home') }}">← Back to JHR website</a></p>
 <h1>👨‍💼 JHR Staff Dashboard</h1>
 <p>You are logged in as <strong>{{ staff_username }}</strong>.</p>
+<div class="theme-toggle-row"><button type="button" id="dashboardThemeToggle" aria-label="Switch color theme">☀️ Use light mode</button></div>
 
 <div class="staff-tabs" role="tablist" aria-label="Staff dashboard sections">
     <button class="staff-tab active" type="button" data-panel="messages">📨 Messages</button>
@@ -1229,6 +1320,20 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
             }).catch(function () {});
         }
     }, 60 * 1000);
+})();
+</script>
+<script>
+(function(){
+  const key = 'jhrTheme';
+  const button = document.getElementById('dashboardThemeToggle');
+  function applyTheme(){
+    const theme = localStorage.getItem(key) === 'dark' ? 'dark' : 'light';
+    document.body.classList.toggle('dark', theme === 'dark');
+    document.body.classList.toggle('light', theme !== 'dark');
+    if(button){button.textContent = theme === 'dark' ? '☀️ Switch to light mode' : '🌙 Switch to dark mode';button.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');}
+  }
+  if(button){button.addEventListener('click',function(){localStorage.setItem(key,document.body.classList.contains('dark')?'light':'dark');applyTheme();});}
+  applyTheme();
 })();
 </script>
 </body>
@@ -5116,9 +5221,8 @@ function applyTheme() {
             "dark"
         );
 
-        document.getElementById(
-            "themeBtn"
-        ).textContent = "☀️";
+        const themeButton = document.getElementById("themeBtn");
+        if (themeButton) themeButton.textContent = "☀️";
 
     } else {
 
@@ -5126,9 +5230,8 @@ function applyTheme() {
             "dark"
         );
 
-        document.getElementById(
-            "themeBtn"
-        ).textContent = "🌙";
+        const themeButton = document.getElementById("themeBtn");
+        if (themeButton) themeButton.textContent = "🌙";
 
     }
 
@@ -5151,12 +5254,10 @@ function toggleTheme() {
     );
 
 
-    document.getElementById(
-        "themeBtn"
-    ).textContent =
-        dark
-            ? "☀️"
-            : "🌙";
+    const themeButton = document.getElementById("themeBtn");
+    if (themeButton) {
+        themeButton.textContent = dark ? "☀️" : "🌙";
+    }
 
 }
 
