@@ -1062,6 +1062,110 @@ body.dark footer p{color:#d0c4df!important}body.dark footer .footer-logo{color:#
 body:not(.dark) *:not(button):not(#dashboardThemeToggle){color:#111111!important;text-shadow:none!important}
 body:not(.dark) button,body:not(.dark) #dashboardThemeToggle,body:not(.dark) button *{color:#ffffff!important}
 body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#111111!important}
+
+
+/* JHR COMFORTABLE LIGHT MODE — muted lavender, never stark white */
+body:not(.dark){
+  color-scheme:light!important;
+  --background:#e9e4ee!important;
+  --card:#f0ebf5!important;
+  --text:#292432!important;
+  --muted:#5f586b!important;
+  --border:#d0c5dc!important;
+  --jhr-bg:#e9e4ee!important;
+  --jhr-panel:#f0ebf5!important;
+  --jhr-solid:#f0ebf5!important;
+  --jhr-surface:#eee8f3!important;
+  --jhr-ink:#292432!important;
+  --jhr-muted:#5f586b!important;
+  --jhr-line:#d0c5dc!important;
+  --dash-bg:#e9e4ee!important;
+  --dash-card:#f0ebf5!important;
+  --dash-text:#292432!important;
+  --dash-muted:#5f586b!important;
+  --dash-border:#d0c5dc!important;
+  --dash-field:#e8e2ed!important;
+  --dash-table-alt:#e8e2ed!important;
+  background:#e9e4ee!important;
+  background-image:linear-gradient(180deg,#e9e4ee 0%,#e5deeb 100%)!important;
+  color:#292432!important;
+}
+body:not(.dark):before{opacity:.22!important;background-image:radial-gradient(rgba(91,62,125,.035) 1px,transparent 1px)!important}
+body:not(.dark) nav{background:#e3dcea!important;border-color:#d0c5dc!important;box-shadow:0 5px 18px rgba(51,37,68,.07)!important;backdrop-filter:none!important}
+body:not(.dark) .card,
+body:not(.dark) .stat,
+body:not(.dark) .service-card,
+body:not(.dark) .owner-card,
+body:not(.dark) .gallery-card,
+body:not(.dark) .game,
+body:not(.dark) .game-card,
+body:not(.dark) .games-card,
+body:not(.dark) .game-item,
+body:not(.dark) .contact,
+body:not(.dark) .coordinator-card,
+body:not(.dark) .auth-box,
+body:not(.dark) #coding-classes,
+body:not(.dark) .news-card,
+body:not(.dark) .project-mini-card,
+body:not(.dark) .gallery-upload,
+body:not(.dark) .gallery-input-section,
+body:not(.dark) .viewer-summary>div,
+body:not(.dark) .secret-grid>div,
+body:not(.dark) .secret-health>div,
+body:not(.dark) .viewer-table-wrap{
+  background:#f0ebf5!important;
+  background-image:none!important;
+  color:#292432!important;
+  border-color:#d0c5dc!important;
+  box-shadow:0 5px 16px rgba(51,37,68,.045)!important;
+}
+body:not(.dark) .games,
+body:not(.dark) .join,
+body:not(.dark) .gallery-caption,
+body:not(.dark) .gallery-meta-row,
+body:not(.dark) .gallery-selection-item,
+body:not(.dark) .gallery-selection-top,
+body:not(.dark) .staff-tabs,
+body:not(.dark) .viewer-table th,
+body:not(.dark) .viewer-table td,
+body:not(.dark) .viewer-table tbody tr:nth-child(even) td{
+  background:#e4dce9!important;color:#292432!important;border-color:#d0c5dc!important;
+}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) label,
+body:not(.dark) small,body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .viewer-summary span,
+body:not(.dark) .secret-grid span,body:not(.dark) .secret-health span,
+body:not(.dark) .card:not(.mission-card) *,body:not(.dark) .service-card *,
+body:not(.dark) .gallery-card *,body:not(.dark) .coordinator-card *{
+  text-shadow:none!important;
+}
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) small,
+body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .gallery-caption p,
+body:not(.dark) footer p{color:#5f586b!important}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) strong,body:not(.dark) label,
+body:not(.dark) .viewer-summary strong{color:#292432!important}
+body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,
+body:not(.dark) .game input,body:not(.dark) .game textarea,body:not(.dark) .game select,
+body:not(.dark) .auth-box input,body:not(.dark) .auth-box textarea,
+body:not(.dark) #coding-classes input,body:not(.dark) #coding-classes textarea{
+  background:#e6e0eb!important;color:#292432!important;border-color:#cfc3da!important;
+  box-shadow:none!important;
+}
+body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#777080!important;opacity:1!important}
+body:not(.dark) footer{background:#ddd5e5!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .hero{background:linear-gradient(135deg,#59456f 0%,#705786 52%,#896b91 100%)!important;box-shadow:0 12px 30px rgba(51,37,68,.12)!important}
+body:not(.dark) .hero:before,body:not(.dark) .hero:after{opacity:.14!important}
+body:not(.dark) .hero h1,body:not(.dark) .hero h2,body:not(.dark) .hero h3,body:not(.dark) .hero p,body:not(.dark) .hero .subtitle{color:#fff!important}
+body:not(.dark) .mission-card,body:not(.dark) .color-section{filter:saturate(.78)!important}
+body:not(.dark) .staff-tab{background:#e8e1ee!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .staff-tab.active{background:#705786!important;color:#fff!important}
+body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;border-color:#cfc3da!important}
+body:not(.dark) .viewer-table td{color:#292432!important}
+@media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
+
 </style>
 </head>
 <body>
@@ -3686,6 +3790,110 @@ html body:not(.dark) *:not(button):not(.button):not(.btn):not(.nav-btn):not(#the
 html body:not(.dark) button,html body:not(.dark) .button,html body:not(.dark) .btn,html body:not(.dark) .nav-btn,html body:not(.dark) button *,html body:not(.dark) .button *,html body:not(.dark) .btn *,html body:not(.dark) .nav-btn *{color:#ffffff!important}
 html body:not(.dark) #themeBtn,html body:not(.dark) #langBtn,html body:not(.dark) #themeBtn *,html body:not(.dark) #langBtn *{color:#111111!important}
 html body:not(.dark) input,html body:not(.dark) textarea,html body:not(.dark) select,html body:not(.dark) option,html body:not(.dark) input::placeholder,html body:not(.dark) textarea::placeholder{color:#111111!important}
+
+
+/* JHR COMFORTABLE LIGHT MODE — muted lavender, never stark white */
+body:not(.dark){
+  color-scheme:light!important;
+  --background:#e9e4ee!important;
+  --card:#f0ebf5!important;
+  --text:#292432!important;
+  --muted:#5f586b!important;
+  --border:#d0c5dc!important;
+  --jhr-bg:#e9e4ee!important;
+  --jhr-panel:#f0ebf5!important;
+  --jhr-solid:#f0ebf5!important;
+  --jhr-surface:#eee8f3!important;
+  --jhr-ink:#292432!important;
+  --jhr-muted:#5f586b!important;
+  --jhr-line:#d0c5dc!important;
+  --dash-bg:#e9e4ee!important;
+  --dash-card:#f0ebf5!important;
+  --dash-text:#292432!important;
+  --dash-muted:#5f586b!important;
+  --dash-border:#d0c5dc!important;
+  --dash-field:#e8e2ed!important;
+  --dash-table-alt:#e8e2ed!important;
+  background:#e9e4ee!important;
+  background-image:linear-gradient(180deg,#e9e4ee 0%,#e5deeb 100%)!important;
+  color:#292432!important;
+}
+body:not(.dark):before{opacity:.22!important;background-image:radial-gradient(rgba(91,62,125,.035) 1px,transparent 1px)!important}
+body:not(.dark) nav{background:#e3dcea!important;border-color:#d0c5dc!important;box-shadow:0 5px 18px rgba(51,37,68,.07)!important;backdrop-filter:none!important}
+body:not(.dark) .card,
+body:not(.dark) .stat,
+body:not(.dark) .service-card,
+body:not(.dark) .owner-card,
+body:not(.dark) .gallery-card,
+body:not(.dark) .game,
+body:not(.dark) .game-card,
+body:not(.dark) .games-card,
+body:not(.dark) .game-item,
+body:not(.dark) .contact,
+body:not(.dark) .coordinator-card,
+body:not(.dark) .auth-box,
+body:not(.dark) #coding-classes,
+body:not(.dark) .news-card,
+body:not(.dark) .project-mini-card,
+body:not(.dark) .gallery-upload,
+body:not(.dark) .gallery-input-section,
+body:not(.dark) .viewer-summary>div,
+body:not(.dark) .secret-grid>div,
+body:not(.dark) .secret-health>div,
+body:not(.dark) .viewer-table-wrap{
+  background:#f0ebf5!important;
+  background-image:none!important;
+  color:#292432!important;
+  border-color:#d0c5dc!important;
+  box-shadow:0 5px 16px rgba(51,37,68,.045)!important;
+}
+body:not(.dark) .games,
+body:not(.dark) .join,
+body:not(.dark) .gallery-caption,
+body:not(.dark) .gallery-meta-row,
+body:not(.dark) .gallery-selection-item,
+body:not(.dark) .gallery-selection-top,
+body:not(.dark) .staff-tabs,
+body:not(.dark) .viewer-table th,
+body:not(.dark) .viewer-table td,
+body:not(.dark) .viewer-table tbody tr:nth-child(even) td{
+  background:#e4dce9!important;color:#292432!important;border-color:#d0c5dc!important;
+}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) label,
+body:not(.dark) small,body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .viewer-summary span,
+body:not(.dark) .secret-grid span,body:not(.dark) .secret-health span,
+body:not(.dark) .card:not(.mission-card) *,body:not(.dark) .service-card *,
+body:not(.dark) .gallery-card *,body:not(.dark) .coordinator-card *{
+  text-shadow:none!important;
+}
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) small,
+body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .gallery-caption p,
+body:not(.dark) footer p{color:#5f586b!important}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) strong,body:not(.dark) label,
+body:not(.dark) .viewer-summary strong{color:#292432!important}
+body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,
+body:not(.dark) .game input,body:not(.dark) .game textarea,body:not(.dark) .game select,
+body:not(.dark) .auth-box input,body:not(.dark) .auth-box textarea,
+body:not(.dark) #coding-classes input,body:not(.dark) #coding-classes textarea{
+  background:#e6e0eb!important;color:#292432!important;border-color:#cfc3da!important;
+  box-shadow:none!important;
+}
+body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#777080!important;opacity:1!important}
+body:not(.dark) footer{background:#ddd5e5!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .hero{background:linear-gradient(135deg,#59456f 0%,#705786 52%,#896b91 100%)!important;box-shadow:0 12px 30px rgba(51,37,68,.12)!important}
+body:not(.dark) .hero:before,body:not(.dark) .hero:after{opacity:.14!important}
+body:not(.dark) .hero h1,body:not(.dark) .hero h2,body:not(.dark) .hero h3,body:not(.dark) .hero p,body:not(.dark) .hero .subtitle{color:#fff!important}
+body:not(.dark) .mission-card,body:not(.dark) .color-section{filter:saturate(.78)!important}
+body:not(.dark) .staff-tab{background:#e8e1ee!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .staff-tab.active{background:#705786!important;color:#fff!important}
+body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;border-color:#cfc3da!important}
+body:not(.dark) .viewer-table td{color:#292432!important}
+@media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
+
 </style>
 
 </head>
@@ -5838,6 +6046,110 @@ input:focus,textarea:focus,select:focus{border-color:#c084fc!important;box-shado
 #coding-classes button,.auth-box button{box-shadow:0 5px 14px rgba(0,0,0,.18)!important;filter:none!important;}
 .gallery-card:hover,.coordinator-card:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px rgba(0,0,0,.24)!important;}
 @media(prefers-reduced-motion:reduce){.gallery-card,.coordinator-card{transition:none!important;transform:none!important}}
+
+
+
+/* JHR COMFORTABLE LIGHT MODE — muted lavender, never stark white */
+body:not(.dark){
+  color-scheme:light!important;
+  --background:#e9e4ee!important;
+  --card:#f0ebf5!important;
+  --text:#292432!important;
+  --muted:#5f586b!important;
+  --border:#d0c5dc!important;
+  --jhr-bg:#e9e4ee!important;
+  --jhr-panel:#f0ebf5!important;
+  --jhr-solid:#f0ebf5!important;
+  --jhr-surface:#eee8f3!important;
+  --jhr-ink:#292432!important;
+  --jhr-muted:#5f586b!important;
+  --jhr-line:#d0c5dc!important;
+  --dash-bg:#e9e4ee!important;
+  --dash-card:#f0ebf5!important;
+  --dash-text:#292432!important;
+  --dash-muted:#5f586b!important;
+  --dash-border:#d0c5dc!important;
+  --dash-field:#e8e2ed!important;
+  --dash-table-alt:#e8e2ed!important;
+  background:#e9e4ee!important;
+  background-image:linear-gradient(180deg,#e9e4ee 0%,#e5deeb 100%)!important;
+  color:#292432!important;
+}
+body:not(.dark):before{opacity:.22!important;background-image:radial-gradient(rgba(91,62,125,.035) 1px,transparent 1px)!important}
+body:not(.dark) nav{background:#e3dcea!important;border-color:#d0c5dc!important;box-shadow:0 5px 18px rgba(51,37,68,.07)!important;backdrop-filter:none!important}
+body:not(.dark) .card,
+body:not(.dark) .stat,
+body:not(.dark) .service-card,
+body:not(.dark) .owner-card,
+body:not(.dark) .gallery-card,
+body:not(.dark) .game,
+body:not(.dark) .game-card,
+body:not(.dark) .games-card,
+body:not(.dark) .game-item,
+body:not(.dark) .contact,
+body:not(.dark) .coordinator-card,
+body:not(.dark) .auth-box,
+body:not(.dark) #coding-classes,
+body:not(.dark) .news-card,
+body:not(.dark) .project-mini-card,
+body:not(.dark) .gallery-upload,
+body:not(.dark) .gallery-input-section,
+body:not(.dark) .viewer-summary>div,
+body:not(.dark) .secret-grid>div,
+body:not(.dark) .secret-health>div,
+body:not(.dark) .viewer-table-wrap{
+  background:#f0ebf5!important;
+  background-image:none!important;
+  color:#292432!important;
+  border-color:#d0c5dc!important;
+  box-shadow:0 5px 16px rgba(51,37,68,.045)!important;
+}
+body:not(.dark) .games,
+body:not(.dark) .join,
+body:not(.dark) .gallery-caption,
+body:not(.dark) .gallery-meta-row,
+body:not(.dark) .gallery-selection-item,
+body:not(.dark) .gallery-selection-top,
+body:not(.dark) .staff-tabs,
+body:not(.dark) .viewer-table th,
+body:not(.dark) .viewer-table td,
+body:not(.dark) .viewer-table tbody tr:nth-child(even) td{
+  background:#e4dce9!important;color:#292432!important;border-color:#d0c5dc!important;
+}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) label,
+body:not(.dark) small,body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .viewer-summary span,
+body:not(.dark) .secret-grid span,body:not(.dark) .secret-health span,
+body:not(.dark) .card:not(.mission-card) *,body:not(.dark) .service-card *,
+body:not(.dark) .gallery-card *,body:not(.dark) .coordinator-card *{
+  text-shadow:none!important;
+}
+body:not(.dark) p,body:not(.dark) li,body:not(.dark) small,
+body:not(.dark) .subtitle,body:not(.dark) .meta,
+body:not(.dark) .viewer-detail,body:not(.dark) .gallery-caption p,
+body:not(.dark) footer p{color:#5f586b!important}
+body:not(.dark) h1,body:not(.dark) h2,body:not(.dark) h3,body:not(.dark) h4,
+body:not(.dark) strong,body:not(.dark) label,
+body:not(.dark) .viewer-summary strong{color:#292432!important}
+body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,
+body:not(.dark) .game input,body:not(.dark) .game textarea,body:not(.dark) .game select,
+body:not(.dark) .auth-box input,body:not(.dark) .auth-box textarea,
+body:not(.dark) #coding-classes input,body:not(.dark) #coding-classes textarea{
+  background:#e6e0eb!important;color:#292432!important;border-color:#cfc3da!important;
+  box-shadow:none!important;
+}
+body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#777080!important;opacity:1!important}
+body:not(.dark) footer{background:#ddd5e5!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .hero{background:linear-gradient(135deg,#59456f 0%,#705786 52%,#896b91 100%)!important;box-shadow:0 12px 30px rgba(51,37,68,.12)!important}
+body:not(.dark) .hero:before,body:not(.dark) .hero:after{opacity:.14!important}
+body:not(.dark) .hero h1,body:not(.dark) .hero h2,body:not(.dark) .hero h3,body:not(.dark) .hero p,body:not(.dark) .hero .subtitle{color:#fff!important}
+body:not(.dark) .mission-card,body:not(.dark) .color-section{filter:saturate(.78)!important}
+body:not(.dark) .staff-tab{background:#e8e1ee!important;color:#292432!important;border-color:#d0c5dc!important}
+body:not(.dark) .staff-tab.active{background:#705786!important;color:#fff!important}
+body:not(.dark) .notice{background:#e5dced!important;color:#292432!important;border-color:#cfc3da!important}
+body:not(.dark) .viewer-table td{color:#292432!important}
+@media(prefers-reduced-motion:reduce){body:not(.dark),body:not(.dark) *{transition:none!important}}
 
 </style>
 </head>
