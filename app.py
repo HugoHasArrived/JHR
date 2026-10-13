@@ -1193,6 +1193,55 @@ body:not(.dark) nav a,body:not(.dark) .logo strong,body:not(.dark) .logo-name-wr
 body:not(.dark) footer{background:#ddd2e8!important;color:#292432!important}
 body:not(.dark) footer *{color:#393044!important}
 body:not(.dark) .button,body:not(.dark) button:not(.nav-btn):not(.staff-tab),body:not(.dark) .nav-btn{color:#fff!important}
+
+/* GAME VISUAL + ALIGNMENT FIX: readable contrast and centered layout. */
+#games, .games, .games-section, .games-grid, .games-container, .game-grid { text-align:center!important; }
+#games .game, #games .game-card, #games .games-card, #games .game-item,
+.game, .game-card, .games-card, .game-item { text-align:center!important; }
+#games .game h1, #games .game h2, #games .game h3, #games .game p,
+.game h1, .game h2, .game h3, .game p, .game-card h1, .game-card h2,
+.game-card h3, .game-card p, .games-card h1, .games-card h2, .games-card h3,
+.games-card p { text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game img, .game img, .game-card img, .games-card img { display:block!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game button, .game button, .game-card button, .games-card button,
+#games .game .btn, .game .btn, .game-card .btn, .games-card .btn { margin-left:auto!important; margin-right:auto!important; }
+body:not(.dark) #games .game, body:not(.dark) .games .game,
+body:not(.dark) .game, body:not(.dark) .game-card, body:not(.dark) .games-card,
+body:not(.dark) .game-item, body:not(.dark) #games .card {
+  background:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  background-image:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  color:#241632!important; border:1px solid #c8b4dc!important;
+  box-shadow:0 10px 26px rgba(64,38,88,.12)!important;
+}
+body:not(.dark) #games .game *, body:not(.dark) .games .game *,
+body:not(.dark) .game *, body:not(.dark) .game-card *,
+body:not(.dark) .games-card *, body:not(.dark) .game-item * {
+  text-shadow:none!important;
+}
+body:not(.dark) #games .game h1, body:not(.dark) #games .game h2,
+body:not(.dark) #games .game h3, body:not(.dark) #games .game p,
+body:not(.dark) .game h1, body:not(.dark) .game h2, body:not(.dark) .game h3,
+body:not(.dark) .game p, body:not(.dark) .game-card h1,
+body:not(.dark) .game-card h2, body:not(.dark) .game-card h3,
+body:not(.dark) .game-card p, body:not(.dark) .games-card h1,
+body:not(.dark) .games-card h2, body:not(.dark) .games-card h3,
+body:not(.dark) .games-card p, body:not(.dark) .game a,
+body:not(.dark) .game-card a, body:not(.dark) .games-card a {
+  color:#241632!important;
+}
+body:not(.dark) #games .game p, body:not(.dark) .game p,
+body:not(.dark) .game-card p, body:not(.dark) .games-card p { color:#51445f!important; }
+body:not(.dark) #games .game button, body:not(.dark) .game button,
+body:not(.dark) .game-card button, body:not(.dark) .games-card button,
+body:not(.dark) .game .btn, body:not(.dark) .game-card .btn,
+body:not(.dark) .games-card .btn { background:linear-gradient(120deg,#6d3b91,#8957ad)!important;color:#fff!important; }
+body.dark #games .game, body.dark .game, body.dark .game-card,
+body.dark .games-card, body.dark .game-item { background:linear-gradient(145deg,#251733,#191023)!important;color:#f7f0ff!important; }
+body.dark #games .game *, body.dark .game *, body.dark .game-card *,
+body.dark .games-card *, body.dark .game-item * { color:#f1e7fb!important; }
+body.dark #games .game p, body.dark .game p, body.dark .game-card p,
+body.dark .games-card p { color:#d5c5e4!important; }
+
 </style>
 </head>
 <body>
@@ -3934,6 +3983,55 @@ body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-c
 body:not(.dark) .card:not(.mission-card) p,body:not(.dark) .service-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .news-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .coordinator-info p{color:#554b60!important}
 body:not(.dark) button:not(.nav-btn):not(.staff-tab){box-shadow:0 5px 14px rgba(89,60,120,.12)}
 
+
+/* GAME VISUAL + ALIGNMENT FIX: readable contrast and centered layout. */
+#games, .games, .games-section, .games-grid, .games-container, .game-grid { text-align:center!important; }
+#games .game, #games .game-card, #games .games-card, #games .game-item,
+.game, .game-card, .games-card, .game-item { text-align:center!important; }
+#games .game h1, #games .game h2, #games .game h3, #games .game p,
+.game h1, .game h2, .game h3, .game p, .game-card h1, .game-card h2,
+.game-card h3, .game-card p, .games-card h1, .games-card h2, .games-card h3,
+.games-card p { text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game img, .game img, .game-card img, .games-card img { display:block!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game button, .game button, .game-card button, .games-card button,
+#games .game .btn, .game .btn, .game-card .btn, .games-card .btn { margin-left:auto!important; margin-right:auto!important; }
+body:not(.dark) #games .game, body:not(.dark) .games .game,
+body:not(.dark) .game, body:not(.dark) .game-card, body:not(.dark) .games-card,
+body:not(.dark) .game-item, body:not(.dark) #games .card {
+  background:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  background-image:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  color:#241632!important; border:1px solid #c8b4dc!important;
+  box-shadow:0 10px 26px rgba(64,38,88,.12)!important;
+}
+body:not(.dark) #games .game *, body:not(.dark) .games .game *,
+body:not(.dark) .game *, body:not(.dark) .game-card *,
+body:not(.dark) .games-card *, body:not(.dark) .game-item * {
+  text-shadow:none!important;
+}
+body:not(.dark) #games .game h1, body:not(.dark) #games .game h2,
+body:not(.dark) #games .game h3, body:not(.dark) #games .game p,
+body:not(.dark) .game h1, body:not(.dark) .game h2, body:not(.dark) .game h3,
+body:not(.dark) .game p, body:not(.dark) .game-card h1,
+body:not(.dark) .game-card h2, body:not(.dark) .game-card h3,
+body:not(.dark) .game-card p, body:not(.dark) .games-card h1,
+body:not(.dark) .games-card h2, body:not(.dark) .games-card h3,
+body:not(.dark) .games-card p, body:not(.dark) .game a,
+body:not(.dark) .game-card a, body:not(.dark) .games-card a {
+  color:#241632!important;
+}
+body:not(.dark) #games .game p, body:not(.dark) .game p,
+body:not(.dark) .game-card p, body:not(.dark) .games-card p { color:#51445f!important; }
+body:not(.dark) #games .game button, body:not(.dark) .game button,
+body:not(.dark) .game-card button, body:not(.dark) .games-card button,
+body:not(.dark) .game .btn, body:not(.dark) .game-card .btn,
+body:not(.dark) .games-card .btn { background:linear-gradient(120deg,#6d3b91,#8957ad)!important;color:#fff!important; }
+body.dark #games .game, body.dark .game, body.dark .game-card,
+body.dark .games-card, body.dark .game-item { background:linear-gradient(145deg,#251733,#191023)!important;color:#f7f0ff!important; }
+body.dark #games .game *, body.dark .game *, body.dark .game-card *,
+body.dark .games-card *, body.dark .game-item * { color:#f1e7fb!important; }
+body.dark #games .game p, body.dark .game p, body.dark .game-card p,
+body.dark .games-card p { color:#d5c5e4!important; }
+
 </style>
 
 </head>
@@ -6203,6 +6301,55 @@ body:not(.dark) .card:not(.mission-card),body:not(.dark) .service-card,body:not(
 body:not(.dark) .card:not(.mission-card) h1,body:not(.dark) .card:not(.mission-card) h2,body:not(.dark) .card:not(.mission-card) h3,body:not(.dark) .card:not(.mission-card) h4,body:not(.dark) .service-card h3,body:not(.dark) .project-mini-card h3,body:not(.dark) .news-card h3,body:not(.dark) .owner-card h3,body:not(.dark) .gallery-card h3,body:not(.dark) .coordinator-info h3{color:#292432!important}
 body:not(.dark) .card:not(.mission-card) p,body:not(.dark) .service-card p,body:not(.dark) .project-mini-card p,body:not(.dark) .news-card p,body:not(.dark) .owner-card p,body:not(.dark) .gallery-card p,body:not(.dark) .coordinator-info p{color:#554b60!important}
 body:not(.dark) button:not(.nav-btn):not(.staff-tab){box-shadow:0 5px 14px rgba(89,60,120,.12)}
+
+
+/* GAME VISUAL + ALIGNMENT FIX: readable contrast and centered layout. */
+#games, .games, .games-section, .games-grid, .games-container, .game-grid { text-align:center!important; }
+#games .game, #games .game-card, #games .games-card, #games .game-item,
+.game, .game-card, .games-card, .game-item { text-align:center!important; }
+#games .game h1, #games .game h2, #games .game h3, #games .game p,
+.game h1, .game h2, .game h3, .game p, .game-card h1, .game-card h2,
+.game-card h3, .game-card p, .games-card h1, .games-card h2, .games-card h3,
+.games-card p { text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game img, .game img, .game-card img, .games-card img { display:block!important; margin-left:auto!important; margin-right:auto!important; }
+#games .game button, .game button, .game-card button, .games-card button,
+#games .game .btn, .game .btn, .game-card .btn, .games-card .btn { margin-left:auto!important; margin-right:auto!important; }
+body:not(.dark) #games .game, body:not(.dark) .games .game,
+body:not(.dark) .game, body:not(.dark) .game-card, body:not(.dark) .games-card,
+body:not(.dark) .game-item, body:not(.dark) #games .card {
+  background:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  background-image:linear-gradient(145deg,#eee6f7 0%,#e5d8f1 55%,#f2e7f1 100%)!important;
+  color:#241632!important; border:1px solid #c8b4dc!important;
+  box-shadow:0 10px 26px rgba(64,38,88,.12)!important;
+}
+body:not(.dark) #games .game *, body:not(.dark) .games .game *,
+body:not(.dark) .game *, body:not(.dark) .game-card *,
+body:not(.dark) .games-card *, body:not(.dark) .game-item * {
+  text-shadow:none!important;
+}
+body:not(.dark) #games .game h1, body:not(.dark) #games .game h2,
+body:not(.dark) #games .game h3, body:not(.dark) #games .game p,
+body:not(.dark) .game h1, body:not(.dark) .game h2, body:not(.dark) .game h3,
+body:not(.dark) .game p, body:not(.dark) .game-card h1,
+body:not(.dark) .game-card h2, body:not(.dark) .game-card h3,
+body:not(.dark) .game-card p, body:not(.dark) .games-card h1,
+body:not(.dark) .games-card h2, body:not(.dark) .games-card h3,
+body:not(.dark) .games-card p, body:not(.dark) .game a,
+body:not(.dark) .game-card a, body:not(.dark) .games-card a {
+  color:#241632!important;
+}
+body:not(.dark) #games .game p, body:not(.dark) .game p,
+body:not(.dark) .game-card p, body:not(.dark) .games-card p { color:#51445f!important; }
+body:not(.dark) #games .game button, body:not(.dark) .game button,
+body:not(.dark) .game-card button, body:not(.dark) .games-card button,
+body:not(.dark) .game .btn, body:not(.dark) .game-card .btn,
+body:not(.dark) .games-card .btn { background:linear-gradient(120deg,#6d3b91,#8957ad)!important;color:#fff!important; }
+body.dark #games .game, body.dark .game, body.dark .game-card,
+body.dark .games-card, body.dark .game-item { background:linear-gradient(145deg,#251733,#191023)!important;color:#f7f0ff!important; }
+body.dark #games .game *, body.dark .game *, body.dark .game-card *,
+body.dark .games-card *, body.dark .game-item * { color:#f1e7fb!important; }
+body.dark #games .game p, body.dark .game p, body.dark .game-card p,
+body.dark .games-card p { color:#d5c5e4!important; }
 
 </style>
 </head>
