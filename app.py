@@ -1058,6 +1058,10 @@ body.dark footer p{color:#d0c4df!important}body.dark footer .footer-logo{color:#
 /* Keep intentionally colorful hero and mission sections legible in both modes. */
 .hero,.color-section,.mission-card{color:#fff!important}.hero h1,.hero h2,.hero h3,.hero p,.hero .subtitle,.color-section h1,.color-section h2,.color-section h3,.color-section p,.mission-card h3,.mission-card p{color:#fff!important}
 @media(prefers-reduced-motion:reduce){body,body *{transition:none!important}}
+/* LIGHT MODE TEXT FIX: black text throughout the staff dashboard. */
+body:not(.dark) *:not(button):not(#dashboardThemeToggle){color:#111111!important;text-shadow:none!important}
+body:not(.dark) button,body:not(.dark) #dashboardThemeToggle,body:not(.dark) button *{color:#ffffff!important}
+body:not(.dark) input,body:not(.dark) textarea,body:not(.dark) select,body:not(.dark) input::placeholder,body:not(.dark) textarea::placeholder{color:#111111!important}
 </style>
 </head>
 <body>
@@ -3646,8 +3650,42 @@ html body.dark .card p,html body.dark .news-card p,html body.dark .project-mini-
 html body.dark input,html body.dark textarea,html body.dark select{background:#110a1b!important;color:#f7f1ff!important;border-color:#59436f!important}
 html body.dark input::placeholder,html body.dark textarea::placeholder{color:#b9a9c9!important;opacity:1!important}
 html body.dark footer{background:#090610!important;color:#e7ddf4!important}
+
+/* SOFT LAVENDER LIGHT THEME — less glare, with purple surfaces throughout. */
+html body:not(.dark){
+  color-scheme:light!important;
+  --text:#302044!important;--muted:#695879!important;--background:#f0eaf8!important;
+  --card:#f8f4ff!important;--border:#d8c8e9!important;
+  background:#f0eaf8!important;
+  background-image:linear-gradient(180deg,#f2edf9 0%,#eee6f7 48%,#f6f0fb 100%)!important;
+}
+html body:not(.dark):before{opacity:.045!important;background-image:linear-gradient(rgba(109,40,217,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(109,40,217,.08) 1px,transparent 1px)!important}
+html body:not(.dark) nav{background:rgba(244,237,252,.96)!important;border-color:#d9c9eb!important;box-shadow:0 8px 25px rgba(74,42,105,.09)!important}
+html body:not(.dark) .hero{background:radial-gradient(ellipse at 80% 10%,rgba(232,121,249,.16),transparent 35%),radial-gradient(ellipse at 12% 95%,rgba(139,92,246,.17),transparent 40%),linear-gradient(135deg,#f8f2ff 0%,#e9def8 57%,#f6e8fa 100%)!important;border-color:#d3bee9!important}
+html body:not(.dark) .section>.title,html body:not(.dark) .section h2,html body:not(.dark) .section h3,html body:not(.dark) .section-title{color:#392052!important}
+html body:not(.dark) .subtitle,html body:not(.dark) .section p{color:#685777!important}
+html body:not(.dark) .card,html body:not(.dark) .card:not(.mission-card),html body:not(.dark) .news-card,html body:not(.dark) .project-mini-card,html body:not(.dark) .service-card,html body:not(.dark) .owner-card,html body:not(.dark) .gallery-card,html body:not(.dark) .game,html body:not(.dark) .game-card,html body:not(.dark) .games-card,html body:not(.dark) .game-item,html body:not(.dark) .contact,html body:not(.dark) .coordinator-card,html body:not(.dark) .auth-box,html body:not(.dark) #coding-classes,html body:not(.dark) .gallery-upload,html body:not(.dark) .gallery-input-section,html body:not(.dark) .join,html body:not(.dark) .stat-card,html body:not(.dark) .stats>*{
+  background:#f8f4ff!important;background-image:linear-gradient(145deg,#faf7ff,#f0e8fa)!important;
+  color:#302044!important;border-color:#d8c8e9!important;
+  box-shadow:0 8px 24px rgba(62,35,88,.075)!important;backdrop-filter:none!important
+}
+html body:not(.dark) .card:nth-child(even),html body:not(.dark) .service-card:nth-child(even),html body:not(.dark) .gallery-card:nth-child(even){background:#f0e8fa!important}
+html body:not(.dark) .card h1,html body:not(.dark) .card h2,html body:not(.dark) .card h3,html body:not(.dark) .card h4,html body:not(.dark) .news-card h3,html body:not(.dark) .project-mini-card h3,html body:not(.dark) .service-card h3,html body:not(.dark) .owner-card h3,html body:not(.dark) .gallery-card h3,html body:not(.dark) .coordinator-info h3,html body:not(.dark) .coordinator-section-title,html body:not(.dark) .auth-box h3,html body:not(.dark) #coding-classes h3,html body:not(.dark) label{color:#392052!important}
+html body:not(.dark) .card p,html body:not(.dark) .news-card p,html body:not(.dark) .project-mini-card p,html body:not(.dark) .service-card p,html body:not(.dark) .owner-card p,html body:not(.dark) .gallery-card p,html body:not(.dark) .game p,html body:not(.dark) .contact p,html body:not(.dark) .coordinator-info p,html body:not(.dark) .auth-box p,html body:not(.dark) #coding-classes p,html body:not(.dark) .gallery-caption p,html body:not(.dark) .join p{color:#685777!important}
+html body:not(.dark) .gallery-caption,html body:not(.dark) .gallery-meta-row,html body:not(.dark) .gallery-selection-item,html body:not(.dark) .gallery-selection-top,html body:not(.dark) .coordinator-role{background:#e9def5!important;color:#4b2b65!important;border-color:#d3c0e6!important}
+html body:not(.dark) input,html body:not(.dark) textarea,html body:not(.dark) select,html body:not(.dark) .game input,html body:not(.dark) .game textarea,html body:not(.dark) .auth-box input,html body:not(.dark) .auth-box textarea,html body:not(.dark) #coding-classes input,html body:not(.dark) #coding-classes textarea{background:#fbf8ff!important;color:#302044!important;border:1px solid #cdbbe2!important}
+html body:not(.dark) input::placeholder,html body:not(.dark) textarea::placeholder{color:#79688a!important;opacity:1!important}
+html body:not(.dark) footer{background:linear-gradient(180deg,#e8def4,#ded0ee)!important;color:#392052!important;border-top:1px solid #cdbbe2!important}
+html body:not(.dark) footer p{color:#685777!important}
+html body:not(.dark) .nav-links a{color:#514060!important}
+html body:not(.dark) a:not(.button):not(.btn){color:#6536a1!important}
 @media(prefers-reduced-motion:reduce){html body:before{animation:none!important}}
 
+/* LIGHT MODE BLACK TEXT: readable across the whole public website. */
+html body:not(.dark) *:not(button):not(.button):not(.btn):not(.nav-btn):not(#themeBtn):not(#langBtn){color:#111111!important;text-shadow:none!important}
+html body:not(.dark) button,html body:not(.dark) .button,html body:not(.dark) .btn,html body:not(.dark) .nav-btn,html body:not(.dark) button *,html body:not(.dark) .button *,html body:not(.dark) .btn *,html body:not(.dark) .nav-btn *{color:#ffffff!important}
+html body:not(.dark) #themeBtn,html body:not(.dark) #langBtn,html body:not(.dark) #themeBtn *,html body:not(.dark) #langBtn *{color:#111111!important}
+html body:not(.dark) input,html body:not(.dark) textarea,html body:not(.dark) select,html body:not(.dark) option,html body:not(.dark) input::placeholder,html body:not(.dark) textarea::placeholder{color:#111111!important}
 </style>
 
 </head>
